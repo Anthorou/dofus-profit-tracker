@@ -1,7 +1,29 @@
 import { redirect } from "next/navigation";
 
 import { logout } from "@/app/(auth)/actions";
+import { BrandMark } from "@/components/brand-mark";
 import { createClient } from "@/lib/supabase/server";
+
+const previewCards = [
+  {
+    label: "Profit total",
+    value: "—",
+    detail: "Disponible après vos premières ventes",
+    accent: "lime",
+  },
+  {
+    label: "Ventes actives",
+    value: "—",
+    detail: "Vos objets en HDV apparaîtront ici",
+    accent: "orange",
+  },
+  {
+    label: "Objets vendus",
+    value: "—",
+    detail: "Historique à venir",
+    accent: "white",
+  },
+];
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -14,34 +36,111 @@ export default async function DashboardPage() {
   }
 
   return (
-    <main className="min-h-screen bg-zinc-950 px-6 py-12 text-zinc-100">
-      <div className="mx-auto max-w-5xl">
-        <header className="flex items-center justify-between gap-6">
-          <div>
-            <p className="text-sm font-semibold tracking-wide text-amber-400">
-              DOFUS PROFIT TRACKER
-            </p>
-            <h1 className="mt-2 text-3xl font-semibold">Tableau de bord</h1>
+    <main className="app-shell">
+      <div className="mx-auto min-h-[calc(100vh-26px)] max-w-[1440px] px-5 py-5 sm:px-8 lg:px-12">
+        <header className="flex items-center justify-between gap-5">
+          <BrandMark />
+
+          <div className="flex items-center gap-3">
+            <div className="hidden rounded-full bg-[var(--color-surface)] px-5 py-2.5 text-right sm:block">
+              <p className="max-w-48 truncate text-xs font-semibold text-white">
+                {user.email}
+              </p>
+              <p className="mt-0.5 text-[10px] text-[var(--color-muted)]">
+                Compte connecté
+              </p>
+            </div>
+            <form action={logout}>
+              <button
+                type="submit"
+                className="rounded-full border border-white/12 px-4 py-2.5 text-xs font-semibold text-white transition hover:border-[var(--color-orange)] hover:text-[var(--color-orange)] sm:px-5"
+              >
+                Déconnexion
+              </button>
+            </form>
           </div>
-          <form action={logout}>
-            <button
-              type="submit"
-              className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium transition hover:border-zinc-500 hover:bg-zinc-900"
-            >
-              Se déconnecter
-            </button>
-          </form>
         </header>
 
-        <section className="mt-12 rounded-2xl border border-zinc-800 bg-zinc-900 p-8">
-          <h2 className="text-xl font-semibold">Authentification réussie</h2>
-          <p className="mt-3 text-zinc-400">
-            Connecté avec <span className="text-zinc-200">{user.email}</span>.
-          </p>
-          <p className="mt-2 text-sm text-zinc-500">
-            Les fonctionnalités de suivi seront ajoutées dans les prochains
-            commits.
-          </p>
+        <section className="pt-14 pb-12 sm:pt-20">
+          <div className="flex flex-col justify-between gap-8 lg:flex-row lg:items-end">
+            <div>
+              <p className="eyebrow text-sm text-[var(--color-lime)]">
+                Espace personnel
+              </p>
+              <h1 className="font-display mt-3 text-6xl leading-none font-bold uppercase tracking-tight text-white sm:text-7xl">
+                Tableau de bord
+              </h1>
+              <p className="mt-4 max-w-xl leading-7 text-[var(--color-muted)]">
+                Votre compte est prêt. Les prochains modules viendront
+                transformer cet espace en centre de contrôle de vos profits.
+              </p>
+            </div>
+
+            <div className="inline-flex w-fit items-center gap-3 rounded-full bg-[var(--color-lime)]/10 px-4 py-2.5 text-sm text-[var(--color-lime)]">
+              <span className="size-2 animate-pulse rounded-full bg-[var(--color-lime)]" />
+              Authentification active
+            </div>
+          </div>
+
+          <div className="mt-12 grid gap-4 md:grid-cols-3">
+            {previewCards.map((card) => (
+              <article
+                key={card.label}
+                className="surface-card min-h-56 rounded-[28px] p-6"
+              >
+                <div className="flex items-center justify-between">
+                  <p className="eyebrow text-xs text-[var(--color-muted)]">
+                    {card.label}
+                  </p>
+                  <span
+                    className={`size-3 rounded-full ${
+                      card.accent === "lime"
+                        ? "bg-[var(--color-lime)]"
+                        : card.accent === "orange"
+                          ? "bg-[var(--color-orange)]"
+                          : "bg-white"
+                    }`}
+                  />
+                </div>
+                <p className="font-display mt-8 text-7xl leading-none font-bold text-white">
+                  {card.value}
+                </p>
+                <p className="mt-8 text-sm leading-6 text-[var(--color-muted)]">
+                  {card.detail}
+                </p>
+              </article>
+            ))}
+          </div>
+
+          <article className="surface-card mt-4 overflow-hidden rounded-[28px]">
+            <div className="grid lg:grid-cols-[1.2fr_0.8fr]">
+              <div className="p-7 sm:p-10">
+                <p className="eyebrow text-xs text-[var(--color-orange)]">
+                  Prochaine étape
+                </p>
+                <h2 className="font-display mt-3 text-4xl font-bold uppercase text-white sm:text-5xl">
+                  Construire les fondations de vos données
+                </h2>
+                <p className="mt-4 max-w-2xl leading-7 text-[var(--color-muted)]">
+                  Le modèle des objets, des lots d’acquisition et des ventes
+                  sera défini avec vous avant d’ajouter les premiers formulaires.
+                </p>
+              </div>
+              <div className="flex min-h-56 items-end gap-3 bg-black/30 px-7 pt-10 sm:px-10">
+                {[42, 68, 54, 82, 63, 92, 74].map((height, index) => (
+                  <div
+                    key={height}
+                    className={`flex-1 rounded-t-full ${
+                      index === 4
+                        ? "bg-[var(--color-orange)]"
+                        : "bg-[var(--color-lime)]"
+                    }`}
+                    style={{ height: `${height}%` }}
+                  />
+                ))}
+              </div>
+            </div>
+          </article>
         </section>
       </div>
     </main>
