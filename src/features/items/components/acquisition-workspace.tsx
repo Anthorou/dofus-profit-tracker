@@ -7,6 +7,10 @@ import {
   createAcquisitionAction,
   type CreateAcquisitionInput,
 } from "@/features/items/actions/create-acquisition";
+import {
+  createSaleAction,
+  type CreateSaleInput,
+} from "@/features/items/actions/create-sale";
 import { deleteAcquisitionAction } from "@/features/items/actions/delete-acquisition";
 import {
   updateAcquisitionAction,
@@ -152,12 +156,19 @@ type ActionsMenuState = {
   left: number;
 };
 
+type SalePriceGroup = {
+  id: number;
+  quantity: string;
+  unitPrice: string;
+};
+
 export function AcquisitionWorkspace({ acquisitions }: AcquisitionWorkspaceProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [isDeleting, startDeletionTransition] = useTransition();
   const [isUpdating, startUpdateTransition] = useTransition();
   const [isUpdatingListingPrice, startListingPriceTransition] = useTransition();
+  const [isRecordingSale, startSaleTransition] = useTransition();
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [items, setItems] = useState<EquipmentSearchResult[]>([]);
@@ -180,9 +191,18 @@ export function AcquisitionWorkspace({ acquisitions }: AcquisitionWorkspaceProps
   const [isPriceChangeConfirmationOpen, setIsPriceChangeConfirmationOpen] = useState(false);
   const [listingPriceCandidate, setListingPriceCandidate] = useState<ActiveAcquisition | null>(null);
   const [listingPriceError, setListingPriceError] = useState<string | null>(null);
+  const [saleCandidate, setSaleCandidate] = useState<ActiveAcquisition | null>(null);
+  const [salePricingMode, setSalePricingMode] = useState<"same" | "different">("same");
+  const [saleQuantity, setSaleQuantity] = useState("1");
+  const [saleUnitPrice, setSaleUnitPrice] = useState("");
+  const [saleGroups, setSaleGroups] = useState<SalePriceGroup[]>([
+    { id: 1, quantity: "1", unitPrice: "" },
+  ]);
+  const [saleError, setSaleError] = useState<string | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const professionMenuRef = useRef<HTMLDivElement>(null);
   const actionsMenuRef = useRef<HTMLDivElement>(null);
+  const nextSaleGroupId = useRef(2);
 
   function closeModal() {
     setIsOpen(false);
@@ -437,6 +457,102 @@ export function AcquisitionWorkspace({ acquisitions }: AcquisitionWorkspaceProps
     });
   }
 
+  function openSaleModal(acquisition: ActiveAcquisition) {
+    setSaleCandidate(acquisition);
+    setSalePricingMode("same");
+    setSaleQuantity("1");
+    setSaleUnitPrice(String(acquisition.listingPrice));
+    setSaleGroups([
+      { id: 1, quantity: "1", unitPrice: String(acquisition.listingPrice) },
+    ]);
+    nextSaleGroupId.current = 2;
+    setSaleError(null);
+    setActionsMenu(null);
+  }
+
+  function closeSaleModal() {
+    setSaleCandidate(null);
+    setSalePricingMode("same");
+    setSaleQuantity("1");
+    setSaleUnitPrice("");
+    setSaleGroups([{ id: 1, quantity: "1", unitPrice: "" }]);
+    setSaleError(null);
+  }
+
+  function updateSaleGroup(
+    id: number,
+    field: "quantity" | "unitPrice",
+    value: string,
+  ) {
+    const numericValue = value.replace(/\D/g, "");
+    setSaleGroups((groups) =>
+      groups.map((group) =>
+        group.id === id ? { ...group, [field]: numericValue } : group,
+      ),
+    );
+  }
+
+  function addSaleGroup() {
+    setSaleGroups((groups) => [
+      ...groups,
+      {
+        id: nextSaleGroupId.current++,
+        quantity: "1",
+        unitPrice: saleCandidate ? String(saleCandidate.listingPrice) : "",
+      },
+    ]);
+  }
+
+  function removeSaleGroup(id: number) {
+    setSaleGroups((groups) => groups.filter((group) => group.id !== id));
+  }
+
+  const parsedSaleGroups: CreateSaleInput["groups"] =
+    salePricingMode === "same"
+      ? [{ quantity: Number(saleQuantity), unitPrice: Number(saleUnitPrice) }]
+      : saleGroups.map((group) => ({
+          quantity: Number(group.quantity),
+          unitPrice: Number(group.unitPrice),
+        }));
+  const totalSaleQuantity = parsedSaleGroups.reduce(
+    (total, group) => total + group.quantity,
+    0,
+  );
+  const isSaleFormValid =
+    saleCandidate !== null &&
+    parsedSaleGroups.length > 0 &&
+    parsedSaleGroups.every(
+      (group) =>
+        Number.isSafeInteger(group.quantity) &&
+        group.quantity > 0 &&
+        Number.isSafeInteger(group.unitPrice) &&
+        group.unitPrice > 0,
+    ) &&
+    totalSaleQuantity <= saleCandidate.quantity;
+
+  function submitSale() {
+    if (!saleCandidate || !isSaleFormValid) {
+      setSaleError("Vérifie les quantités et les prix de vente.");
+      return;
+    }
+
+    setSaleError(null);
+    startSaleTransition(async () => {
+      const result = await createSaleAction({
+        acquisitionId: saleCandidate.id,
+        groups: parsedSaleGroups,
+      });
+
+      if (!result.success) {
+        setSaleError(result.message);
+        return;
+      }
+
+      closeSaleModal();
+      router.refresh();
+    });
+  }
+
   useEffect(() => {
     if (!isOpen) return;
 
@@ -544,6 +660,17 @@ export function AcquisitionWorkspace({ acquisitions }: AcquisitionWorkspaceProps
   }, [listingPriceCandidate, isUpdatingListingPrice]);
 
   useEffect(() => {
+    if (!saleCandidate) return;
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape" && !isRecordingSale) closeSaleModal();
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [saleCandidate, isRecordingSale]);
+
+  useEffect(() => {
     const normalizedQuery = query.trim();
 
     if (!isOpen || normalizedQuery.length < 2) {
@@ -619,7 +746,18 @@ export function AcquisitionWorkspace({ acquisitions }: AcquisitionWorkspaceProps
             <thead>
               <tr className="border-b border-white/6">
                 {tableColumns.map((column) => (
-                  <th key={column} className={`eyebrow px-2 py-4 text-[10px] font-bold whitespace-nowrap text-[var(--color-muted)] first:pl-6 last:pr-6 ${column === "Quantité" || column === "Statut" ? "text-center" : ""} ${column === "Quantité" || column === "Statut" ? "relative -left-1.5" : ""} ${column === "Équipement" ? "pl-4" : ""} ${column === "Acquisition" ? "pl-0" : ""}`}>{column}</th>
+                  <th key={column} className={`eyebrow px-2 py-4 text-[10px] font-bold whitespace-nowrap text-[var(--color-muted)] first:pl-6 last:pr-6 ${column === "Quantité" || column === "Statut" ? "text-center" : ""} ${column === "Quantité" || column === "Statut" ? "relative -left-1.5" : ""} ${column === "Équipement" ? "pl-4" : ""} ${column === "Acquisition" ? "pl-0" : ""}`}>
+                    {column === "Statut" ? (
+                      <span tabIndex={0} className="group/status relative inline-flex cursor-help items-center gap-1.5 outline-none">
+                        Statut
+                        <span aria-hidden="true" className="flex size-4 items-center justify-center rounded-full border border-white/15 font-sans text-[9px] normal-case text-[var(--color-muted)]">?</span>
+                        <span role="tooltip" className="pointer-events-none absolute top-full left-1/2 z-30 mt-2 hidden w-44 -translate-x-1/2 rounded-xl border border-white/10 bg-[#242424] p-3 font-sans text-[11px] font-medium tracking-normal normal-case shadow-2xl shadow-black/60 group-hover/status:block group-focus/status:block">
+                          <span className="flex items-center gap-2 text-white"><span className="size-2 rounded-full bg-[var(--color-lime)]" />En vente</span>
+                          <span className="mt-2 flex items-center gap-2 text-white"><span className="size-2 rounded-full bg-[var(--color-orange)]" />Partiellement vendu</span>
+                        </span>
+                      </span>
+                    ) : column}
+                  </th>
                 ))}
               </tr>
             </thead>
@@ -670,7 +808,7 @@ export function AcquisitionWorkspace({ acquisitions }: AcquisitionWorkspaceProps
                       <div className="relative flex items-center justify-center whitespace-nowrap">
                         <span className={`relative -left-1.5 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${acquisition.quantitySold > 0 ? "bg-[var(--color-orange)]/10 text-[var(--color-orange)]" : "bg-[var(--color-lime)]/10 text-[var(--color-lime)]"}`}>
                           <span className={`size-1.5 rounded-full ${acquisition.quantitySold > 0 ? "bg-[var(--color-orange)]" : "bg-[var(--color-lime)]"}`} />
-                          {acquisition.quantitySold > 0 ? "Partiellement vendu" : "En vente"}
+                          En vente
                         </span>
                         <button type="button" aria-label={`Actions pour ${acquisition.itemName}`} aria-expanded={actionsMenu?.acquisition.id === acquisition.id} onClick={(event) => toggleActionsMenu(event, acquisition)} className="absolute right-0 inline-flex h-8 w-7 items-center justify-center text-sm font-bold tracking-widest text-[var(--color-muted)] transition hover:text-white">•••</button>
                       </div>
@@ -698,7 +836,7 @@ export function AcquisitionWorkspace({ acquisitions }: AcquisitionWorkspaceProps
           className="fixed z-60 w-56 overflow-hidden rounded-2xl border border-white/10 bg-[#202020] p-1.5 shadow-2xl shadow-black/60"
           style={{ top: actionsMenu.top, left: actionsMenu.left }}
         >
-          <button type="button" role="menuitem" disabled className="flex w-full cursor-not-allowed items-center rounded-xl px-3 py-2.5 text-left text-sm text-white/55">
+          <button type="button" role="menuitem" onClick={() => openSaleModal(actionsMenu.acquisition)} className="flex w-full items-center rounded-xl px-3 py-2.5 text-left text-sm text-white transition hover:bg-white/7">
             Enregistrer une vente
           </button>
           <button type="button" role="menuitem" onClick={() => openListingPriceModal(actionsMenu.acquisition)} className="flex w-full items-center rounded-xl px-3 py-2.5 text-left text-sm text-white transition hover:bg-white/7">
@@ -728,6 +866,100 @@ export function AcquisitionWorkspace({ acquisitions }: AcquisitionWorkspaceProps
           >
             Supprimer l’entrée
           </button>
+        </div>
+      )}
+
+      {saleCandidate && (
+        <div
+          className="fixed inset-0 z-70 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !isRecordingSale) {
+              closeSaleModal();
+            }
+          }}
+        >
+          <div role="dialog" aria-modal="true" aria-labelledby="record-sale-title" className="surface-card w-full max-w-xl overflow-hidden rounded-[28px]">
+            <div className="max-h-[calc(100vh-32px)] overflow-y-auto p-6 sm:p-8">
+              <div className="flex items-start justify-between gap-5">
+                <div>
+                  <p className="eyebrow text-xs text-[var(--color-lime)]">Vente réelle</p>
+                  <h2 id="record-sale-title" className="font-display mt-2 text-3xl font-bold uppercase text-white sm:text-4xl">Enregistrer une vente</h2>
+                </div>
+                <button type="button" disabled={isRecordingSale} onClick={closeSaleModal} aria-label="Fermer" className="flex size-10 shrink-0 items-center justify-center rounded-full border border-white/10 text-xl text-[var(--color-muted)] transition hover:border-white/25 hover:text-white disabled:opacity-50">×</button>
+              </div>
+
+              <div className="mt-5 flex items-center gap-4 rounded-2xl border border-white/8 bg-black/20 p-4">
+                {saleCandidate.imageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={saleCandidate.imageUrl} alt="" className="size-14 shrink-0 rounded-xl bg-white/5 object-contain p-1" />
+                ) : (
+                  <span className="size-14 shrink-0 rounded-xl bg-white/5" />
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold text-white">{saleCandidate.itemName}</p>
+                  <p className="mt-1 text-xs text-[var(--color-muted)]">{saleCandidate.quantity} unité{saleCandidate.quantity === 1 ? "" : "s"} disponible{saleCandidate.quantity === 1 ? "" : "s"}</p>
+                </div>
+              </div>
+
+              <fieldset className="mt-5">
+                <legend className="eyebrow text-xs text-white">Prix de vente</legend>
+                <div className="mt-2 grid h-14 grid-cols-2 rounded-2xl border border-white/10 bg-black/25 p-1">
+                  <button type="button" onClick={() => { setSalePricingMode("same"); setSaleError(null); }} className={`h-full rounded-xl px-3 text-sm font-semibold transition ${salePricingMode === "same" ? "bg-[var(--color-lime)] text-black" : "text-[var(--color-muted)] hover:text-white"}`}>Même prix</button>
+                  <button type="button" onClick={() => { setSalePricingMode("different"); setSaleError(null); }} className={`h-full rounded-xl px-3 text-sm font-semibold transition ${salePricingMode === "different" ? "bg-[var(--color-lime)] text-black" : "text-[var(--color-muted)] hover:text-white"}`}>Prix différents</button>
+                </div>
+              </fieldset>
+
+              {salePricingMode === "same" ? (
+                <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                  <label>
+                    <span className="eyebrow text-xs text-white">Quantité vendue</span>
+                    <input autoFocus type="text" inputMode="numeric" pattern="[0-9]*" value={saleQuantity} onChange={(event) => { setSaleQuantity(event.target.value.replace(/\D/g, "")); setSaleError(null); }} className="mt-2 h-14 w-full rounded-2xl border border-white/10 bg-black/25 px-4 text-sm text-white outline-none transition focus:border-[var(--color-lime)]/70" />
+                  </label>
+                  <label>
+                    <span className="eyebrow text-xs text-white">Prix vendu par unité</span>
+                    <div className="mt-2 flex h-14 items-center rounded-2xl border border-white/10 bg-black/25 px-4 transition focus-within:border-[var(--color-lime)]/70">
+                      <input type="text" inputMode="numeric" pattern="[0-9]*" value={saleUnitPrice} onChange={(event) => { setSaleUnitPrice(event.target.value.replace(/\D/g, "")); setSaleError(null); }} className="min-w-0 flex-1 bg-transparent text-sm text-white outline-none" />
+                      <span className="text-xs font-semibold text-[var(--color-muted)]">K</span>
+                    </div>
+                  </label>
+                </div>
+              ) : (
+                <div className="mt-5 space-y-3">
+                  <div className="grid grid-cols-[minmax(0,0.75fr)_minmax(0,1.25fr)_2.5rem] gap-3 px-1">
+                    <span className="eyebrow text-[10px] text-white">Quantité</span>
+                    <span className="eyebrow text-[10px] text-white">Prix par unité</span>
+                    <span />
+                  </div>
+                  {saleGroups.map((group, index) => (
+                    <div key={group.id} className="grid grid-cols-[minmax(0,0.75fr)_minmax(0,1.25fr)_2.5rem] gap-3">
+                      <input autoFocus={index === 0} aria-label={`Quantité du groupe ${index + 1}`} type="text" inputMode="numeric" pattern="[0-9]*" value={group.quantity} onChange={(event) => { updateSaleGroup(group.id, "quantity", event.target.value); setSaleError(null); }} className="h-12 min-w-0 rounded-xl border border-white/10 bg-black/25 px-3 text-sm text-white outline-none transition focus:border-[var(--color-lime)]/70" />
+                      <div className="flex h-12 min-w-0 items-center rounded-xl border border-white/10 bg-black/25 px-3 transition focus-within:border-[var(--color-lime)]/70">
+                        <input aria-label={`Prix du groupe ${index + 1}`} type="text" inputMode="numeric" pattern="[0-9]*" value={group.unitPrice} onChange={(event) => { updateSaleGroup(group.id, "unitPrice", event.target.value); setSaleError(null); }} className="min-w-0 flex-1 bg-transparent text-sm text-white outline-none" />
+                        <span className="text-xs font-semibold text-[var(--color-muted)]">K</span>
+                      </div>
+                      <button type="button" aria-label={`Retirer le groupe ${index + 1}`} disabled={saleGroups.length === 1} onClick={() => removeSaleGroup(group.id)} className="flex size-10 self-center items-center justify-center rounded-full border border-white/10 text-lg text-[var(--color-muted)] transition hover:border-red-400/40 hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-25">×</button>
+                    </div>
+                  ))}
+                  <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+                    <button type="button" onClick={addSaleGroup} className="rounded-full border border-white/10 px-4 py-2 text-xs font-semibold text-white transition hover:border-[var(--color-lime)]/50 hover:text-[var(--color-lime)]">+ Ajouter un prix</button>
+                    <p className={`text-xs ${totalSaleQuantity > saleCandidate.quantity ? "text-red-400" : "text-[var(--color-muted)]"}`}>Total vendu : <span className="font-semibold text-white">{Number.isFinite(totalSaleQuantity) ? totalSaleQuantity : 0}</span> / {saleCandidate.quantity}</p>
+                  </div>
+                </div>
+              )}
+
+              {salePricingMode === "same" && totalSaleQuantity > saleCandidate.quantity && (
+                <p role="alert" className="mt-4 text-sm text-red-400">Il reste seulement {saleCandidate.quantity} unité{saleCandidate.quantity === 1 ? "" : "s"}.</p>
+              )}
+              {saleError && (
+                <p role="alert" className="mt-4 rounded-2xl border border-red-400/20 bg-red-400/8 px-4 py-3 text-sm text-red-400">{saleError}</p>
+              )}
+
+              <div className="mt-7 flex justify-center gap-3">
+                <button type="button" disabled={isRecordingSale} onClick={closeSaleModal} className="rounded-full border border-white/10 px-5 py-3 text-sm font-semibold text-white transition hover:border-white/25 disabled:opacity-50">Annuler</button>
+                <button type="button" disabled={!isSaleFormValid || isRecordingSale} onClick={submitSale} className="rounded-full bg-[var(--color-lime)] px-5 py-3 text-sm font-semibold text-black transition hover:bg-[var(--color-lime-soft)] disabled:cursor-not-allowed disabled:bg-white/8 disabled:text-[var(--color-muted)]">{isRecordingSale ? "Enregistrement…" : "Enregistrer"}</button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
