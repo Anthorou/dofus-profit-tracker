@@ -42,8 +42,11 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
         </label>
 
         <label className="block">
-          <span className="eyebrow mb-2 block text-xs text-white">
-            Mot de passe
+          <span className="mb-2 flex items-center justify-between gap-4">
+            <span className="eyebrow text-xs text-white">Mot de passe</span>
+            <Link href="/forgot-password" className="text-xs font-semibold text-[var(--color-muted)] transition hover:text-[var(--color-lime)]">
+              Mot de passe oublié?
+            </Link>
           </span>
           <input
             name="password"

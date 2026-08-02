@@ -50,20 +50,6 @@ export default function Home() {
               Un espace clair pour suivre vos crafts, vos achats-reventes et ce
               qu’ils vous rapportent réellement.
             </p>
-            <div className="mt-9 flex flex-wrap gap-3">
-              <Link
-                href="/signup"
-                className="rounded-full bg-white px-6 py-3.5 text-sm font-semibold text-black transition hover:bg-[var(--color-lime)]"
-              >
-                Commencer gratuitement
-              </Link>
-              <Link
-                href="/login"
-                className="rounded-full border border-white/15 px-6 py-3.5 text-sm font-semibold text-white transition hover:border-white/30 hover:bg-white/5"
-              >
-                J’ai déjà un compte
-              </Link>
-            </div>
           </div>
 
           <div className="relative">

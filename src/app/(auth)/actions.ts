@@ -84,3 +84,84 @@ export async function logout() {
   revalidatePath("/", "layout");
   redirect("/login");
 }
+
+export async function requestPasswordReset(formData: FormData) {
+  const email = formData.get("email");
+
+  if (typeof email !== "string" || !email.trim()) {
+    redirectWithMessage(
+      "/forgot-password",
+      "Entre une adresse courriel valide.",
+    );
+  }
+
+  const requestHeaders = await headers();
+  const origin = requestHeaders.get("origin");
+  const supabase = await createClient();
+  const { error } = await supabase.auth.resetPasswordForEmail(
+    email.trim().toLowerCase(),
+    origin
+      ? { redirectTo: `${origin}/auth/confirm?next=/reset-password` }
+      : undefined,
+  );
+
+  if (error) {
+    console.error("Could not request password reset", error);
+  }
+
+  redirectWithMessage(
+    "/forgot-password",
+    "Si un compte correspond à ce courriel, un lien de récupération vient d’être envoyé.",
+  );
+}
+
+export async function updatePassword(formData: FormData) {
+  const password = formData.get("password");
+  const passwordConfirmation = formData.get("passwordConfirmation");
+
+  if (
+    typeof password !== "string" ||
+    typeof passwordConfirmation !== "string" ||
+    password.length < 8
+  ) {
+    redirectWithMessage(
+      "/reset-password",
+      "Le mot de passe doit contenir au moins 8 caractères.",
+    );
+  }
+
+  if (password !== passwordConfirmation) {
+    redirectWithMessage(
+      "/reset-password",
+      "Les deux mots de passe ne correspondent pas.",
+    );
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirectWithMessage(
+      "/login",
+      "Le lien de récupération est invalide ou expiré.",
+    );
+  }
+
+  const { error } = await supabase.auth.updateUser({ password });
+
+  if (error) {
+    redirectWithMessage(
+      "/reset-password",
+      "Le mot de passe n’a pas pu être modifié. Demande un nouveau lien.",
+    );
+  }
+
+  await supabase.auth.signOut();
+  revalidatePath("/", "layout");
+  redirectWithMessage(
+    "/login",
+    "Mot de passe modifié. Tu peux maintenant te connecter.",
+  );
+}
