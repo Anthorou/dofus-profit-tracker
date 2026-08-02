@@ -4,13 +4,13 @@ import { logout } from "@/app/(auth)/actions";
 import { BrandMark } from "@/components/brand-mark";
 
 type AppHeaderProps = {
-  activePage: "dashboard" | "sales-history";
+  activePage: "dashboard" | "statistics" | "sales-history";
   email: string;
 };
 
 const navigationItems = [
   { id: "dashboard", label: "Tableau de bord", href: "/dashboard" },
-  { id: "statistics", label: "Statistiques", href: null },
+  { id: "statistics", label: "Statistiques", href: "/statistics" },
   { id: "sales-history", label: "Historique des ventes", href: "/sales-history" },
 ] as const;
 
@@ -27,14 +27,6 @@ export function AppHeader({ activePage, email }: AppHeaderProps) {
               ? "border-[var(--color-lime)] bg-[var(--color-lime)]/10 text-[var(--color-lime)]"
               : "border-transparent text-[var(--color-muted)]"
           }`;
-
-          if (!item.href) {
-            return (
-              <span key={item.id} aria-disabled="true" className={`${className} cursor-not-allowed opacity-60`}>
-                {item.label}
-              </span>
-            );
-          }
 
           return (
             <Link key={item.id} href={item.href} aria-current={isActive ? "page" : undefined} className={`${className} hover:border-white/15 hover:text-white`}>
