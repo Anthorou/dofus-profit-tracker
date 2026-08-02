@@ -26,6 +26,16 @@ const profitColorStops = [
   { rate: 150, color: [168, 255, 90] },
 ] as const;
 
+type SaleSortKey = "date" | "equipment" | "status";
+type SortDirection = "asc" | "desc";
+
+function normalizeTableSearch(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLocaleLowerCase("fr");
+}
+
 function getProfitColor(rate: number) {
   const clampedRate = Math.min(Math.max(rate, 0), 150);
   const upperStopIndex = profitColorStops.findIndex(
@@ -51,6 +61,9 @@ function getProfitColor(rate: number) {
 export function SaleHistoryTable({ sales }: { sales: SaleHistoryEntry[] }) {
   const router = useRouter();
   const [isDeleting, startDeletionTransition] = useTransition();
+  const [tableSearch, setTableSearch] = useState("");
+  const [sortKey, setSortKey] = useState<SaleSortKey>("date");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [actionsMenu, setActionsMenu] = useState<{
     sale: SaleHistoryEntry;
     top: number;
@@ -59,11 +72,49 @@ export function SaleHistoryTable({ sales }: { sales: SaleHistoryEntry[] }) {
   const [deletionCandidate, setDeletionCandidate] = useState<SaleHistoryEntry | null>(null);
   const [deletionError, setDeletionError] = useState<string | null>(null);
   const actionsMenuRef = useRef<HTMLDivElement>(null);
+  const visibleSales = sales
+    .filter((sale) =>
+      normalizeTableSearch(sale.itemName).includes(
+        normalizeTableSearch(tableSearch.trim()),
+      ),
+    )
+    .sort((first, second) => {
+      let comparison = 0;
+
+      if (sortKey === "date") {
+        comparison =
+          new Date(first.soldAt).getTime() - new Date(second.soldAt).getTime();
+      } else if (sortKey === "equipment") {
+        comparison = first.itemName.localeCompare(second.itemName, "fr", {
+          sensitivity: "base",
+        });
+      } else {
+        comparison =
+          Number(first.completedAcquisition) - Number(second.completedAcquisition);
+      }
+
+      return sortDirection === "asc" ? comparison : -comparison;
+    });
   const candidateSalesCount = deletionCandidate
     ? sales.filter(
         (sale) => sale.acquisitionId === deletionCandidate.acquisitionId,
       ).length
     : 0;
+
+  function toggleSort(nextSortKey: SaleSortKey) {
+    if (sortKey === nextSortKey) {
+      setSortDirection((direction) => (direction === "asc" ? "desc" : "asc"));
+      return;
+    }
+
+    setSortKey(nextSortKey);
+    setSortDirection(nextSortKey === "date" ? "desc" : "asc");
+  }
+
+  function sortIndicator(column: SaleSortKey) {
+    if (sortKey !== column) return "↕";
+    return sortDirection === "asc" ? "↑" : "↓";
+  }
 
   function toggleActionsMenu(
     event: React.MouseEvent<HTMLButtonElement>,
@@ -150,6 +201,16 @@ export function SaleHistoryTable({ sales }: { sales: SaleHistoryEntry[] }) {
         <p className="text-xs text-[var(--color-muted)]">{sales.length} vente{sales.length === 1 ? "" : "s"}</p>
       </div>
 
+      <div className="flex items-center justify-end gap-3 border-b border-white/6 px-6 py-3 sm:px-8">
+        {tableSearch && (
+          <p className="hidden text-[11px] whitespace-nowrap text-[var(--color-muted)] sm:block">{visibleSales.length} résultat{visibleSales.length === 1 ? "" : "s"}</p>
+        )}
+        <label className="flex h-9 w-64 max-w-full items-center gap-2.5 rounded-xl border border-white/10 bg-black/25 px-3 transition focus-within:border-[var(--color-lime)]/60">
+          <span aria-hidden="true" className="text-sm text-[var(--color-muted)]">⌕</span>
+          <input type="search" value={tableSearch} onChange={(event) => setTableSearch(event.target.value)} placeholder="Rechercher un équipement" className="min-w-0 flex-1 bg-transparent text-xs text-white outline-none placeholder:text-[10px] placeholder:text-[var(--color-muted)]" />
+        </label>
+      </div>
+
       <div className="overflow-x-auto">
         <table className="w-full min-w-[1220px] border-collapse text-left">
           <thead>
@@ -166,14 +227,32 @@ export function SaleHistoryTable({ sales }: { sales: SaleHistoryEntry[] }) {
                 "Profit (%)",
                 "Statut",
                 "",
-              ].map((column) => (
-                <th key={column} className={`eyebrow px-3 py-4 text-[10px] font-bold whitespace-nowrap text-[var(--color-muted)] first:pl-6 last:pr-6 ${column === "Quantité" || column === "Statut" ? "text-center" : ""}`}>{column}</th>
-              ))}
+              ].map((column) => {
+                const sortableKey =
+                  column === "Date"
+                    ? "date"
+                    : column === "Équipement"
+                      ? "equipment"
+                      : column === "Statut"
+                        ? "status"
+                        : null;
+
+                return (
+                  <th key={column} className={`eyebrow px-3 py-4 text-[10px] font-bold whitespace-nowrap text-[var(--color-muted)] first:pl-6 last:pr-6 ${column === "Quantité" || column === "Statut" ? "text-center" : ""}`}>
+                    {sortableKey ? (
+                      <button type="button" onClick={() => toggleSort(sortableKey)} className="inline-flex items-center gap-1 transition hover:text-white">
+                        {column}
+                        <span aria-hidden="true" className={sortKey === sortableKey ? "text-[var(--color-lime)]" : "text-white/25"}>{sortIndicator(sortableKey)}</span>
+                      </button>
+                    ) : column}
+                  </th>
+                );
+              })}
             </tr>
           </thead>
-          {sales.length > 0 && (
+          {visibleSales.length > 0 && (
             <tbody>
-              {sales.map((sale) => {
+              {visibleSales.map((sale) => {
                 const tax = calculateListingTax(sale.initialListingUnitPrice, 1);
                 const unitProfit = calculateRealizedUnitProfit({
                   acquisitionUnitCost: sale.acquisitionUnitCost,
@@ -243,6 +322,12 @@ export function SaleHistoryTable({ sales }: { sales: SaleHistoryEntry[] }) {
           <div className="flex size-14 items-center justify-center rounded-full border border-white/10 bg-white/4 text-2xl text-[var(--color-lime)]">✓</div>
           <p className="mt-5 font-semibold text-white">Aucune vente enregistrée</p>
           <p className="mt-2 max-w-sm text-sm leading-6 text-[var(--color-muted)]">Les ventes partielles et complètes apparaîtront ici dès leur enregistrement.</p>
+        </div>
+      )}
+      {sales.length > 0 && visibleSales.length === 0 && (
+        <div className="flex min-h-48 flex-col items-center justify-center px-6 py-10 text-center">
+          <p className="font-semibold text-white">Aucun équipement trouvé</p>
+          <p className="mt-2 text-sm text-[var(--color-muted)]">Essaie un autre nom d’équipement.</p>
         </div>
       )}
       </section>

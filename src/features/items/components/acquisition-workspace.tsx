@@ -162,6 +162,16 @@ type SalePriceGroup = {
   unitPrice: string;
 };
 
+type AcquisitionSortKey = "date" | "equipment" | "status";
+type SortDirection = "asc" | "desc";
+
+function normalizeTableSearch(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLocaleLowerCase("fr");
+}
+
 export function AcquisitionWorkspace({ acquisitions }: AcquisitionWorkspaceProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -169,6 +179,9 @@ export function AcquisitionWorkspace({ acquisitions }: AcquisitionWorkspaceProps
   const [isUpdating, startUpdateTransition] = useTransition();
   const [isUpdatingListingPrice, startListingPriceTransition] = useTransition();
   const [isRecordingSale, startSaleTransition] = useTransition();
+  const [tableSearch, setTableSearch] = useState("");
+  const [sortKey, setSortKey] = useState<AcquisitionSortKey>("date");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [items, setItems] = useState<EquipmentSearchResult[]>([]);
@@ -203,6 +216,44 @@ export function AcquisitionWorkspace({ acquisitions }: AcquisitionWorkspaceProps
   const professionMenuRef = useRef<HTMLDivElement>(null);
   const actionsMenuRef = useRef<HTMLDivElement>(null);
   const nextSaleGroupId = useRef(2);
+
+  const visibleAcquisitions = acquisitions
+    .filter((acquisition) =>
+      normalizeTableSearch(acquisition.itemName).includes(
+        normalizeTableSearch(tableSearch.trim()),
+      ),
+    )
+    .sort((first, second) => {
+      let comparison = 0;
+
+      if (sortKey === "date") {
+        comparison =
+          new Date(first.listedAt).getTime() - new Date(second.listedAt).getTime();
+      } else if (sortKey === "equipment") {
+        comparison = first.itemName.localeCompare(second.itemName, "fr", {
+          sensitivity: "base",
+        });
+      } else {
+        comparison = Number(first.quantitySold > 0) - Number(second.quantitySold > 0);
+      }
+
+      return sortDirection === "asc" ? comparison : -comparison;
+    });
+
+  function toggleSort(nextSortKey: AcquisitionSortKey) {
+    if (sortKey === nextSortKey) {
+      setSortDirection((direction) => (direction === "asc" ? "desc" : "asc"));
+      return;
+    }
+
+    setSortKey(nextSortKey);
+    setSortDirection(nextSortKey === "date" ? "desc" : "asc");
+  }
+
+  function sortIndicator(column: AcquisitionSortKey) {
+    if (sortKey !== column) return "↕";
+    return sortDirection === "asc" ? "↑" : "↓";
+  }
 
   function closeModal() {
     setIsOpen(false);
@@ -729,6 +780,16 @@ export function AcquisitionWorkspace({ acquisitions }: AcquisitionWorkspaceProps
           </button>
         </div>
 
+        <div className="flex items-center justify-end gap-3 border-b border-white/6 px-6 py-3 sm:px-8">
+          {tableSearch && (
+            <p className="hidden text-[11px] whitespace-nowrap text-[var(--color-muted)] sm:block">{visibleAcquisitions.length} résultat{visibleAcquisitions.length === 1 ? "" : "s"}</p>
+          )}
+          <label className="flex h-9 w-64 max-w-full items-center gap-2.5 rounded-xl border border-white/10 bg-black/25 px-3 transition focus-within:border-[var(--color-lime)]/60">
+            <span aria-hidden="true" className="text-sm text-[var(--color-muted)]">⌕</span>
+            <input type="search" value={tableSearch} onChange={(event) => setTableSearch(event.target.value)} placeholder="Rechercher un équipement" className="min-w-0 flex-1 bg-transparent text-xs text-white outline-none placeholder:text-[10px] placeholder:text-[var(--color-muted)]" />
+          </label>
+        </div>
+
         <div className="overflow-x-auto">
           <table className="w-full min-w-[1120px] table-fixed border-collapse text-left">
             <colgroup>
@@ -748,22 +809,31 @@ export function AcquisitionWorkspace({ acquisitions }: AcquisitionWorkspaceProps
                 {tableColumns.map((column) => (
                   <th key={column} className={`eyebrow px-2 py-4 text-[10px] font-bold whitespace-nowrap text-[var(--color-muted)] first:pl-6 last:pr-6 ${column === "Quantité" || column === "Statut" ? "text-center" : ""} ${column === "Quantité" || column === "Statut" ? "relative -left-1.5" : ""} ${column === "Équipement" ? "pl-4" : ""} ${column === "Acquisition" ? "pl-0" : ""}`}>
                     {column === "Statut" ? (
-                      <span tabIndex={0} className="group/status relative inline-flex cursor-help items-center gap-1.5 outline-none">
-                        Statut
-                        <span aria-hidden="true" className="flex size-4 items-center justify-center rounded-full border border-white/15 font-sans text-[9px] normal-case text-[var(--color-muted)]">?</span>
-                        <span role="tooltip" className="pointer-events-none absolute top-full left-1/2 z-30 mt-2 hidden w-44 -translate-x-1/2 rounded-xl border border-white/10 bg-[#242424] p-3 font-sans text-[11px] font-medium tracking-normal normal-case shadow-2xl shadow-black/60 group-hover/status:block group-focus/status:block">
-                          <span className="flex items-center gap-2 text-white"><span className="size-2 rounded-full bg-[var(--color-lime)]" />En vente</span>
-                          <span className="mt-2 flex items-center gap-2 text-white"><span className="size-2 rounded-full bg-[var(--color-orange)]" />Partiellement vendu</span>
+                      <span className="inline-flex items-center gap-1.5">
+                        <button type="button" onClick={() => toggleSort("status")} className="inline-flex items-center gap-1 transition hover:text-white" aria-label="Trier par statut">
+                          Statut <span aria-hidden="true" className={sortKey === "status" ? "text-[var(--color-lime)]" : "text-white/25"}>{sortIndicator("status")}</span>
+                        </button>
+                        <span tabIndex={0} className="group/status relative inline-flex cursor-help outline-none">
+                          <span aria-hidden="true" className="flex size-4 items-center justify-center rounded-full border border-white/15 font-sans text-[9px] normal-case text-[var(--color-muted)]">?</span>
+                          <span role="tooltip" className="pointer-events-none absolute top-full left-1/2 z-30 mt-2 hidden w-44 -translate-x-1/2 rounded-xl border border-white/10 bg-[#242424] p-3 font-sans text-[11px] font-medium tracking-normal normal-case shadow-2xl shadow-black/60 group-hover/status:block group-focus/status:block">
+                            <span className="flex items-center gap-2 text-white"><span className="size-2 rounded-full bg-[var(--color-lime)]" />En vente</span>
+                            <span className="mt-2 flex items-center gap-2 text-white"><span className="size-2 rounded-full bg-[var(--color-orange)]" />Partiellement vendu</span>
+                          </span>
                         </span>
                       </span>
+                    ) : column === "Mise en vente" || column === "Équipement" ? (
+                      <button type="button" onClick={() => toggleSort(column === "Mise en vente" ? "date" : "equipment")} className="inline-flex items-center gap-1 transition hover:text-white">
+                        {column}
+                        <span aria-hidden="true" className={sortKey === (column === "Mise en vente" ? "date" : "equipment") ? "text-[var(--color-lime)]" : "text-white/25"}>{sortIndicator(column === "Mise en vente" ? "date" : "equipment")}</span>
+                      </button>
                     ) : column}
                   </th>
                 ))}
               </tr>
             </thead>
-            {acquisitions.length > 0 && (
+            {visibleAcquisitions.length > 0 && (
               <tbody className="divide-y divide-white/6">
-                {acquisitions.map((acquisition) => (
+                {visibleAcquisitions.map((acquisition) => (
                   <tr key={acquisition.id} className="transition hover:bg-white/3">
                     <td className="py-4 pr-1 pl-6 text-[13px] whitespace-nowrap text-[var(--color-muted)]">{dateFormatter.format(new Date(acquisition.listedAt))}</td>
                     <td className="py-4 pr-2 pl-4">
@@ -823,6 +893,12 @@ export function AcquisitionWorkspace({ acquisitions }: AcquisitionWorkspaceProps
               <div className="flex size-14 items-center justify-center rounded-full border border-white/10 bg-white/4 text-2xl text-[var(--color-lime)]">+</div>
               <p className="mt-5 font-semibold text-white">Aucune vente en cours</p>
               <p className="mt-2 max-w-sm text-sm leading-6 text-[var(--color-muted)]">Ajoutez votre première acquisition pour commencer à suivre sa mise en vente.</p>
+            </div>
+          )}
+          {acquisitions.length > 0 && visibleAcquisitions.length === 0 && (
+            <div className="flex min-h-48 flex-col items-center justify-center px-6 py-10 text-center">
+              <p className="font-semibold text-white">Aucun équipement trouvé</p>
+              <p className="mt-2 text-sm text-[var(--color-muted)]">Essaie un autre nom d’équipement.</p>
             </div>
           )}
         </div>
