@@ -7,6 +7,7 @@ import {
   createAcquisitionAction,
   type CreateAcquisitionInput,
 } from "@/features/items/actions/create-acquisition";
+import { deleteAcquisitionAction } from "@/features/items/actions/delete-acquisition";
 import {
   calculateListingTax,
   calculatePotentialProfitRate,
@@ -140,9 +141,16 @@ type AcquisitionWorkspaceProps = {
   acquisitions: ActiveAcquisition[];
 };
 
+type ActionsMenuState = {
+  acquisition: ActiveAcquisition;
+  top: number;
+  left: number;
+};
+
 export function AcquisitionWorkspace({ acquisitions }: AcquisitionWorkspaceProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const [isDeleting, startDeletionTransition] = useTransition();
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [items, setItems] = useState<EquipmentSearchResult[]>([]);
@@ -157,8 +165,12 @@ export function AcquisitionWorkspace({ acquisitions }: AcquisitionWorkspaceProps
   const [listingPrice, setListingPrice] = useState("");
   const [isForgemaged, setIsForgemaged] = useState(false);
   const [submissionError, setSubmissionError] = useState<string | null>(null);
+  const [actionsMenu, setActionsMenu] = useState<ActionsMenuState | null>(null);
+  const [deletionCandidate, setDeletionCandidate] = useState<ActiveAcquisition | null>(null);
+  const [deletionError, setDeletionError] = useState<string | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const professionMenuRef = useRef<HTMLDivElement>(null);
+  const actionsMenuRef = useRef<HTMLDivElement>(null);
 
   function closeModal() {
     setIsOpen(false);
@@ -248,6 +260,42 @@ export function AcquisitionWorkspace({ acquisitions }: AcquisitionWorkspaceProps
     }
   }
 
+  function toggleActionsMenu(
+    event: React.MouseEvent<HTMLButtonElement>,
+    acquisition: ActiveAcquisition,
+  ) {
+    if (actionsMenu?.acquisition.id === acquisition.id) {
+      setActionsMenu(null);
+      return;
+    }
+
+    const buttonBounds = event.currentTarget.getBoundingClientRect();
+    const menuWidth = 224;
+
+    setActionsMenu({
+      acquisition,
+      top: buttonBounds.bottom + 8,
+      left: Math.max(16, buttonBounds.right - menuWidth),
+    });
+  }
+
+  function confirmDeletion() {
+    if (!deletionCandidate) return;
+
+    setDeletionError(null);
+    startDeletionTransition(async () => {
+      const result = await deleteAcquisitionAction(deletionCandidate.id);
+
+      if (!result.success) {
+        setDeletionError(result.message);
+        return;
+      }
+
+      setDeletionCandidate(null);
+      router.refresh();
+    });
+  }
+
   useEffect(() => {
     if (!isOpen) return;
 
@@ -280,6 +328,47 @@ export function AcquisitionWorkspace({ acquisitions }: AcquisitionWorkspaceProps
     window.addEventListener("mousedown", handleOutsideClick);
     return () => window.removeEventListener("mousedown", handleOutsideClick);
   }, [isProfessionMenuOpen]);
+
+  useEffect(() => {
+    if (!actionsMenu) return;
+
+    function closeActionsMenu(event: PointerEvent) {
+      if (!actionsMenuRef.current?.contains(event.target as Node)) {
+        setActionsMenu(null);
+      }
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setActionsMenu(null);
+    }
+
+    function handleViewportChange() {
+      setActionsMenu(null);
+    }
+
+    window.addEventListener("pointerdown", closeActionsMenu);
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("resize", handleViewportChange);
+    window.addEventListener("scroll", handleViewportChange, true);
+
+    return () => {
+      window.removeEventListener("pointerdown", closeActionsMenu);
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("resize", handleViewportChange);
+      window.removeEventListener("scroll", handleViewportChange, true);
+    };
+  }, [actionsMenu]);
+
+  useEffect(() => {
+    if (!deletionCandidate) return;
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setDeletionCandidate(null);
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [deletionCandidate]);
 
   useEffect(() => {
     const normalizedQuery = query.trim();
@@ -379,7 +468,6 @@ export function AcquisitionWorkspace({ acquisitions }: AcquisitionWorkspaceProps
                           <span className="mt-1 block text-xs text-[var(--color-muted)]">
                             {acquisition.itemType ?? "Équipement"}
                             {acquisition.itemLevel !== null ? ` · Niveau ${acquisition.itemLevel}` : ""}
-                            {acquisition.isForgemaged ? " · FM" : ""}
                           </span>
                         </span>
                       </div>
@@ -397,7 +485,7 @@ export function AcquisitionWorkspace({ acquisitions }: AcquisitionWorkspaceProps
                     <td className="px-2 py-4 text-center text-[13px] text-white"><span className="inline-block -translate-x-1.5">{numberFormatter.format(acquisition.quantity)}</span></td>
                     <td className="px-3 py-4 text-[13px] whitespace-nowrap text-white">{numberFormatter.format(acquisition.unitCost)} K</td>
                     <td className="px-3 py-4 text-[13px] whitespace-nowrap text-white">{numberFormatter.format(acquisition.listingPrice)} K</td>
-                    <td className="px-3 py-4 text-[13px] whitespace-nowrap text-white">{numberFormatter.format(calculateListingTax(acquisition.initialListingPrice, acquisition.quantity + acquisition.quantitySold))} K</td>
+                    <td className="px-3 py-4 text-[13px] whitespace-nowrap text-white">{numberFormatter.format(calculateListingTax(acquisition.initialListingPrice, 1))} K</td>
                     <td className="px-3 py-4 text-[13px]"><PotentialProfitRate acquisition={acquisition} /></td>
                     <td className="px-3 py-4 text-[13px]"><PotentialUnitProfit acquisition={acquisition} /></td>
                     <td className="py-4 pr-6 pl-2">
@@ -406,7 +494,7 @@ export function AcquisitionWorkspace({ acquisitions }: AcquisitionWorkspaceProps
                           <span className={`size-1.5 rounded-full ${acquisition.quantitySold > 0 ? "bg-[var(--color-orange)]" : "bg-[var(--color-lime)]"}`} />
                           {acquisition.quantitySold > 0 ? "Partiellement vendu" : "En vente"}
                         </span>
-                        <button type="button" aria-label={`Actions pour ${acquisition.itemName}`} className="absolute right-0 inline-flex h-8 w-7 items-center justify-center text-sm font-bold tracking-widest text-[var(--color-muted)] transition hover:text-white">•••</button>
+                        <button type="button" aria-label={`Actions pour ${acquisition.itemName}`} aria-expanded={actionsMenu?.acquisition.id === acquisition.id} onClick={(event) => toggleActionsMenu(event, acquisition)} className="absolute right-0 inline-flex h-8 w-7 items-center justify-center text-sm font-bold tracking-widest text-[var(--color-muted)] transition hover:text-white">•••</button>
                       </div>
                     </td>
                   </tr>
@@ -423,6 +511,75 @@ export function AcquisitionWorkspace({ acquisitions }: AcquisitionWorkspaceProps
           )}
         </div>
       </section>
+
+      {actionsMenu && (
+        <div
+          ref={actionsMenuRef}
+          role="menu"
+          aria-label={`Actions pour ${actionsMenu.acquisition.itemName}`}
+          className="fixed z-60 w-56 overflow-hidden rounded-2xl border border-white/10 bg-[#202020] p-1.5 shadow-2xl shadow-black/60"
+          style={{ top: actionsMenu.top, left: actionsMenu.left }}
+        >
+          <button type="button" role="menuitem" disabled className="flex w-full cursor-not-allowed items-center rounded-xl px-3 py-2.5 text-left text-sm text-white/55">
+            Modifier l’acquisition
+          </button>
+          <button type="button" role="menuitem" disabled className="flex w-full cursor-not-allowed items-center rounded-xl px-3 py-2.5 text-left text-sm text-white/55">
+            Enregistrer une vente
+          </button>
+          <div className="my-1 border-t border-white/8" />
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              setDeletionError(null);
+              setDeletionCandidate(actionsMenu.acquisition);
+              setActionsMenu(null);
+            }}
+            className="flex w-full items-center rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-red-400 transition hover:bg-red-400/10"
+          >
+            Supprimer l’entrée
+          </button>
+        </div>
+      )}
+
+      {deletionCandidate && (
+        <div
+          className="fixed inset-0 z-70 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setDeletionCandidate(null);
+          }}
+        >
+          <div role="alertdialog" aria-modal="true" aria-labelledby="delete-acquisition-title" aria-describedby="delete-acquisition-item" className="surface-card w-full max-w-md rounded-[28px] p-6 sm:p-8">
+            <div className="flex items-center gap-3">
+              <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-red-400/10 text-xl text-red-400">!</div>
+              <p className="eyebrow text-xs text-red-400">Action irréversible</p>
+            </div>
+            <h2 id="delete-acquisition-title" className="font-display mt-5 text-3xl font-bold uppercase text-white">Supprimer l’entrée?</h2>
+            <div id="delete-acquisition-item" className="mt-4 flex items-center gap-4 rounded-2xl border border-white/8 bg-black/20 p-4">
+              {deletionCandidate.imageUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={deletionCandidate.imageUrl} alt="" className="size-14 shrink-0 rounded-xl bg-white/5 object-contain p-1" />
+              ) : (
+                <span className="size-14 shrink-0 rounded-xl bg-white/5" />
+              )}
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-white">{deletionCandidate.itemName}</p>
+                <p className="mt-1 text-xs text-[var(--color-muted)]">
+                  {deletionCandidate.itemType ?? "Équipement"}
+                  {deletionCandidate.itemLevel !== null ? ` · Niveau ${deletionCandidate.itemLevel}` : ""}
+                </p>
+              </div>
+            </div>
+            {deletionError && (
+              <p role="alert" className="mt-4 rounded-2xl border border-red-400/20 bg-red-400/8 px-4 py-3 text-sm text-red-400">{deletionError}</p>
+            )}
+            <div className="mt-7 flex flex-col-reverse justify-center gap-3 sm:flex-row">
+              <button type="button" disabled={isDeleting} onClick={() => { setDeletionCandidate(null); setDeletionError(null); }} className="rounded-full border border-white/10 px-5 py-3 text-sm font-semibold text-white transition hover:border-white/25 disabled:cursor-not-allowed disabled:opacity-50">Annuler</button>
+              <button type="button" disabled={isDeleting} onClick={confirmDeletion} className="rounded-full bg-red-400 px-5 py-3 text-sm font-semibold text-black transition hover:bg-red-300 disabled:cursor-not-allowed disabled:opacity-60">{isDeleting ? "Suppression…" : "Supprimer"}</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm" onMouseDown={(event) => { if (event.target === event.currentTarget) closeModal(); }}>
