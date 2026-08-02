@@ -283,10 +283,15 @@ export function AcquisitionWorkspace({ acquisitions }: AcquisitionWorkspaceProps
 
     const buttonBounds = event.currentTarget.getBoundingClientRect();
     const menuWidth = 224;
+    const menuHeight = 196;
+    const shouldOpenAbove =
+      window.innerHeight - buttonBounds.bottom < menuHeight + 16;
 
     setActionsMenu({
       acquisition,
-      top: buttonBounds.bottom + 8,
+      top: shouldOpenAbove
+        ? Math.max(16, buttonBounds.top - menuHeight - 8)
+        : buttonBounds.bottom + 8,
       left: Math.max(16, buttonBounds.right - menuWidth),
     });
   }
@@ -593,7 +598,7 @@ export function AcquisitionWorkspace({ acquisitions }: AcquisitionWorkspaceProps
           </div>
           <button type="button" onClick={() => setIsOpen(true)} className="inline-flex items-center justify-center gap-2 rounded-full bg-[var(--color-lime)] px-5 py-3 text-sm font-semibold text-black transition hover:bg-[var(--color-lime-soft)]">
             <span className="text-xl leading-none">+</span>
-            Ajouter une acquisition
+            Ajouter une entrée
           </button>
         </div>
 
