@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 
-import { logout } from "@/app/(auth)/actions";
-import { BrandMark } from "@/components/brand-mark";
+import { AppHeader } from "@/components/app-header";
 import { AcquisitionWorkspace } from "@/features/items/components/acquisition-workspace";
 import { calculatePotentialProfit } from "@/features/items/acquisitions/calculations";
 import type { ActiveAcquisition } from "@/features/items/acquisitions/types";
@@ -107,38 +106,7 @@ export default async function DashboardPage() {
   return (
     <main className="app-shell">
       <div className="mx-auto min-h-[calc(100vh-26px)] max-w-[1440px] px-5 py-5 sm:px-8 lg:px-12">
-        <header className="grid grid-cols-[1fr_auto] items-center gap-4 lg:grid-cols-[1fr_auto_1fr]">
-          <BrandMark />
-
-          <nav aria-label="Navigation principale" className="order-3 col-span-2 flex items-center justify-self-center gap-3 lg:order-none lg:col-span-1">
-            <span aria-current="page" className="inline-flex h-10 items-center rounded-full border border-[var(--color-lime)] bg-[var(--color-lime)]/10 px-5 text-sm font-semibold text-[var(--color-lime)]">
-              Tableau de bord
-            </span>
-            <button type="button" disabled className="inline-flex h-10 cursor-not-allowed items-center rounded-full border border-transparent px-5 text-sm font-semibold text-[var(--color-muted)]">
-              Statistiques
-            </button>
-          </nav>
-
-          <div className="flex items-center justify-self-end gap-3">
-            <div className="hidden rounded-full bg-[var(--color-surface)] px-5 py-2.5 text-right sm:block">
-              <p className="max-w-48 truncate text-xs font-semibold text-white">
-                {user.email}
-              </p>
-              <p className="mt-0.5 flex items-center justify-end gap-1.5 text-[10px] text-[var(--color-muted)]">
-                <span className="size-1.5 animate-pulse rounded-full bg-[var(--color-lime)]" />
-                Compte connecté
-              </p>
-            </div>
-            <form action={logout}>
-              <button
-                type="submit"
-                className="rounded-full border border-white/12 px-4 py-2.5 text-xs font-semibold text-white transition hover:border-[var(--color-orange)] hover:text-[var(--color-orange)] sm:px-5"
-              >
-                Déconnexion
-              </button>
-            </form>
-          </div>
-        </header>
+        <AppHeader activePage="dashboard" email={user.email ?? ""} />
 
         <section className="pt-8 pb-12 sm:pt-10">
           <div className="grid gap-4 md:grid-cols-3">

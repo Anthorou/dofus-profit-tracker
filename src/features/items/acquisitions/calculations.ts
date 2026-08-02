@@ -40,3 +40,27 @@ export function calculatePotentialProfitRate(input: PotentialProfitInput) {
 
   return (calculatePotentialProfit(input) / investedAmount) * 100;
 }
+
+type RealizedProfitInput = {
+  acquisitionUnitCost: number;
+  saleUnitPrice: number;
+  initialListingUnitPrice: number;
+};
+
+export function calculateRealizedUnitProfit({
+  acquisitionUnitCost,
+  saleUnitPrice,
+  initialListingUnitPrice,
+}: RealizedProfitInput) {
+  return (
+    saleUnitPrice -
+    acquisitionUnitCost -
+    calculateListingTax(initialListingUnitPrice, 1)
+  );
+}
+
+export function calculateRealizedProfitRate(input: RealizedProfitInput) {
+  if (input.acquisitionUnitCost === 0) return null;
+
+  return (calculateRealizedUnitProfit(input) / input.acquisitionUnitCost) * 100;
+}
