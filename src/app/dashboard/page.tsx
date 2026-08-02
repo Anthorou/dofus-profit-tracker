@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { logout } from "@/app/(auth)/actions";
 import { BrandMark } from "@/components/brand-mark";
 import { AcquisitionWorkspace } from "@/features/items/components/acquisition-workspace";
+import { calculatePotentialProfit } from "@/features/items/acquisitions/calculations";
 import type { ActiveAcquisition } from "@/features/items/acquisitions/types";
 import { createClient } from "@/lib/supabase/server";
 
@@ -22,6 +23,7 @@ export default async function DashboardPage() {
       id,
       acquisition_type,
       acquisition_unit_cost,
+      initial_listing_unit_price,
       current_listing_unit_price,
       is_forgemaged,
       quantity_acquired,
@@ -54,7 +56,9 @@ export default async function DashboardPage() {
         acquisitionType: row.acquisition_type,
         isForgemaged: row.is_forgemaged,
         quantity: row.quantity_acquired - quantitySold,
+        quantitySold,
         unitCost: row.acquisition_unit_cost,
+        initialListingPrice: row.initial_listing_unit_price,
         listingPrice: row.current_listing_unit_price,
         listedAt: row.listed_at,
       };
@@ -65,24 +69,37 @@ export default async function DashboardPage() {
     (total, acquisition) => total + acquisition.quantity,
     0,
   );
+  const investedKamas = acquisitions.reduce(
+    (total, acquisition) =>
+      total + acquisition.quantity * acquisition.unitCost,
+    0,
+  );
+  const potentialProfit = acquisitions.reduce((total, acquisition) => {
+    return total + calculatePotentialProfit({
+      acquisitionUnitCost: acquisition.unitCost,
+      currentListingUnitPrice: acquisition.listingPrice,
+      initialListingUnitPrice: acquisition.initialListingPrice,
+      quantity: acquisition.quantity,
+    });
+  }, 0);
 
   const previewCards = [
-    {
-      label: "Profit total",
-      value: "—",
-      detail: "Disponible après vos premières ventes",
-      accent: "lime",
-    },
     {
       label: "Ventes actives",
       value: activeQuantity.toLocaleString("fr-CA"),
       detail: `${acquisitions.length} lot${acquisitions.length === 1 ? "" : "s"} en cours`,
+      accent: "lime",
+    },
+    {
+      label: "Kamas immobilisés",
+      value: `${investedKamas.toLocaleString("fr-CA")} K`,
+      detail: "Capital dans les ventes en cours",
       accent: "orange",
     },
     {
-      label: "Objets vendus",
-      value: "—",
-      detail: "Historique à venir",
+      label: "Profit potentiel",
+      value: `${potentialProfit.toLocaleString("fr-CA")} K`,
+      detail: "Après les coûts et la taxe HDV de 2 %",
       accent: "white",
     },
   ];
@@ -90,15 +107,25 @@ export default async function DashboardPage() {
   return (
     <main className="app-shell">
       <div className="mx-auto min-h-[calc(100vh-26px)] max-w-[1440px] px-5 py-5 sm:px-8 lg:px-12">
-        <header className="flex items-center justify-between gap-5">
+        <header className="grid grid-cols-[1fr_auto] items-center gap-4 lg:grid-cols-[1fr_auto_1fr]">
           <BrandMark />
 
-          <div className="flex items-center gap-3">
+          <nav aria-label="Navigation principale" className="order-3 col-span-2 flex items-center justify-self-center gap-3 lg:order-none lg:col-span-1">
+            <span aria-current="page" className="inline-flex h-10 items-center rounded-full border border-[var(--color-lime)] bg-[var(--color-lime)]/10 px-5 text-sm font-semibold text-[var(--color-lime)]">
+              Tableau de bord
+            </span>
+            <button type="button" disabled className="inline-flex h-10 cursor-not-allowed items-center rounded-full border border-transparent px-5 text-sm font-semibold text-[var(--color-muted)]">
+              Statistiques
+            </button>
+          </nav>
+
+          <div className="flex items-center justify-self-end gap-3">
             <div className="hidden rounded-full bg-[var(--color-surface)] px-5 py-2.5 text-right sm:block">
               <p className="max-w-48 truncate text-xs font-semibold text-white">
                 {user.email}
               </p>
-              <p className="mt-0.5 text-[10px] text-[var(--color-muted)]">
+              <p className="mt-0.5 flex items-center justify-end gap-1.5 text-[10px] text-[var(--color-muted)]">
+                <span className="size-1.5 animate-pulse rounded-full bg-[var(--color-lime)]" />
                 Compte connecté
               </p>
             </div>
@@ -113,28 +140,8 @@ export default async function DashboardPage() {
           </div>
         </header>
 
-        <section className="pt-14 pb-12 sm:pt-20">
-          <div className="flex flex-col justify-between gap-8 lg:flex-row lg:items-end">
-            <div>
-              <p className="eyebrow text-sm text-[var(--color-lime)]">
-                Espace personnel
-              </p>
-              <h1 className="font-display mt-3 text-6xl leading-none font-bold uppercase tracking-tight text-white sm:text-7xl">
-                Tableau de bord
-              </h1>
-              <p className="mt-4 max-w-xl leading-7 text-[var(--color-muted)]">
-                Votre compte est prêt. Les prochains modules viendront
-                transformer cet espace en centre de contrôle de vos profits.
-              </p>
-            </div>
-
-            <div className="inline-flex w-fit items-center gap-3 rounded-full bg-[var(--color-lime)]/10 px-4 py-2.5 text-sm text-[var(--color-lime)]">
-              <span className="size-2 animate-pulse rounded-full bg-[var(--color-lime)]" />
-              Authentification active
-            </div>
-          </div>
-
-          <div className="mt-12 grid gap-4 md:grid-cols-3">
+        <section className="pt-8 pb-12 sm:pt-10">
+          <div className="grid gap-4 md:grid-cols-3">
             {previewCards.map((card) => (
               <article
                 key={card.label}

@@ -8,7 +8,9 @@ export type ActiveAcquisition = {
   acquisitionType: "craft" | "purchase";
   isForgemaged: boolean;
   quantity: number;
+  quantitySold: number;
   unitCost: number;
+  initialListingPrice: number;
   listingPrice: number;
   listedAt: string;
 };

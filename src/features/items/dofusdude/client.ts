@@ -8,9 +8,11 @@ import {
 
 const DOFUSDUDE_API_URL = "https://api.dofusdu.de";
 const SEARCH_RESULT_LIMIT = 8;
+const SEARCH_CANDIDATE_LIMIT = 24;
 const SEARCH_TIMEOUT_MS = 5_000;
 const MINIMUM_QUERY_LENGTH = 2;
 const MAXIMUM_QUERY_LENGTH = 80;
+const EXCLUDED_EQUIPMENT_TYPES = ["familier", "montilier", "monture"];
 
 function normalizeQuery(query: string) {
   return query.trim();
@@ -28,6 +30,14 @@ function validateQuery(query: string) {
   }
 }
 
+function isSupportedEquipmentType(itemType: string) {
+  const normalizedType = itemType.toLocaleLowerCase("fr");
+
+  return !EXCLUDED_EQUIPMENT_TYPES.some((excludedType) =>
+    normalizedType.includes(excludedType),
+  );
+}
+
 export async function searchDofusdudeEquipment(
   query: string,
 ): Promise<EquipmentSearchResult[]> {
@@ -36,7 +46,7 @@ export async function searchDofusdudeEquipment(
 
   const searchParams = new URLSearchParams({
     query: normalizedQuery,
-    limit: String(SEARCH_RESULT_LIMIT),
+    limit: String(SEARCH_CANDIDATE_LIMIT),
   });
   const url = `${DOFUSDUDE_API_URL}/dofus3/v1/fr/items/equipment/search?${searchParams}`;
 
@@ -67,13 +77,16 @@ export async function searchDofusdudeEquipment(
     const data: unknown = await response.json();
     const equipment = dofusdudeEquipmentSearchResponseSchema.parse(data);
 
-    return equipment.map((item) => ({
-      externalId: item.ankama_id,
-      name: item.name,
-      type: item.type.name,
-      level: item.level,
-      imageUrl: item.image_urls.icon,
-    }));
+    return equipment
+      .filter((item) => isSupportedEquipmentType(item.type.name))
+      .slice(0, SEARCH_RESULT_LIMIT)
+      .map((item) => ({
+        externalId: item.ankama_id,
+        name: item.name,
+        type: item.type.name,
+        level: item.level,
+        imageUrl: item.image_urls.icon,
+      }));
   } catch (error) {
     if (error instanceof DofusdudeSearchError) {
       throw error;

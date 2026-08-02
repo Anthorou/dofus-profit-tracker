@@ -7,6 +7,11 @@ import {
   createAcquisitionAction,
   type CreateAcquisitionInput,
 } from "@/features/items/actions/create-acquisition";
+import {
+  calculateListingTax,
+  calculatePotentialProfitRate,
+  calculatePotentialUnitProfit,
+} from "@/features/items/acquisitions/calculations";
 import type { ActiveAcquisition } from "@/features/items/acquisitions/types";
 import type { EquipmentSearchResult } from "@/features/items/dofusdude/types";
 
@@ -15,20 +20,23 @@ type SearchResponse =
   | { success: false; error: string; message: string };
 
 const tableColumns = [
+  "Mise en vente",
   "Équipement",
-  "Métier",
+  "Acquisition",
   "Quantité",
   "Coût unitaire",
   "Prix affiché",
-  "Mise en vente",
+  "Taxe HDV",
+  "Profit (%)",
+  "Profit",
   "Statut",
 ];
 
 const numberFormatter = new Intl.NumberFormat("fr-CA");
 const dateFormatter = new Intl.DateTimeFormat("fr-CA", {
   year: "numeric",
-  month: "short",
-  day: "numeric",
+  month: "2-digit",
+  day: "2-digit",
 });
 
 const professions = [
@@ -40,6 +48,80 @@ const professions = [
   "Façonneur",
   "Bricoleur",
 ] as const;
+
+const profitColorStops = [
+  { rate: 0, color: [248, 113, 113] },
+  { rate: 30, color: [255, 159, 28] },
+  { rate: 60, color: [250, 204, 21] },
+  { rate: 95, color: [120, 217, 107] },
+  { rate: 150, color: [168, 255, 90] },
+] as const;
+
+function getProfitColor(rate: number) {
+  const clampedRate = Math.min(Math.max(rate, 0), 150);
+  const upperStopIndex = profitColorStops.findIndex(
+    (stop) => stop.rate >= clampedRate,
+  );
+
+  if (upperStopIndex <= 0) {
+    const [red, green, blue] = profitColorStops[0].color;
+    return `rgb(${red} ${green} ${blue})`;
+  }
+
+  const lowerStop = profitColorStops[upperStopIndex - 1];
+  const upperStop = profitColorStops[upperStopIndex];
+  const progress =
+    (clampedRate - lowerStop.rate) / (upperStop.rate - lowerStop.rate);
+  const color = lowerStop.color.map((channel, index) =>
+    Math.round(channel + (upperStop.color[index] - channel) * progress),
+  );
+
+  return `rgb(${color[0]} ${color[1]} ${color[2]})`;
+}
+
+function PotentialProfitRate({ acquisition }: { acquisition: ActiveAcquisition }) {
+  const rate = calculatePotentialProfitRate({
+    acquisitionUnitCost: acquisition.unitCost,
+    currentListingUnitPrice: acquisition.listingPrice,
+    initialListingUnitPrice: acquisition.initialListingPrice,
+    quantity: acquisition.quantity,
+  });
+
+  if (rate === null) {
+    return <span className="text-[var(--color-muted)]">—</span>;
+  }
+
+  return (
+    <span
+      className="font-semibold whitespace-nowrap"
+      style={{ color: getProfitColor(rate) }}
+    >
+      {rate.toLocaleString("fr-CA", { maximumFractionDigits: 1 })} %
+    </span>
+  );
+}
+
+function PotentialUnitProfit({ acquisition }: { acquisition: ActiveAcquisition }) {
+  const profit = calculatePotentialUnitProfit({
+    acquisitionUnitCost: acquisition.unitCost,
+    currentListingUnitPrice: acquisition.listingPrice,
+    initialListingUnitPrice: acquisition.initialListingPrice,
+  });
+
+  if (profit < 0) {
+    return (
+      <span className="font-semibold whitespace-nowrap text-red-400">
+        {numberFormatter.format(profit)} K
+      </span>
+    );
+  }
+
+  return (
+    <span className="whitespace-nowrap text-white">
+      {numberFormatter.format(profit)} K
+    </span>
+  );
+}
 
 function suggestProfession(itemType: string) {
   const normalizedType = itemType.toLocaleLowerCase("fr");
@@ -259,11 +341,23 @@ export function AcquisitionWorkspace({ acquisitions }: AcquisitionWorkspaceProps
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[900px] border-collapse text-left">
+          <table className="w-full min-w-[1120px] table-fixed border-collapse text-left">
+            <colgroup>
+              <col className="w-[105px]" />
+              <col />
+              <col className="w-[105px]" />
+              <col className="w-[70px]" />
+              <col className="w-[120px]" />
+              <col className="w-[120px]" />
+              <col className="w-[90px]" />
+              <col className="w-[100px]" />
+              <col className="w-[85px]" />
+              <col className="w-[180px]" />
+            </colgroup>
             <thead>
               <tr className="border-b border-white/6">
                 {tableColumns.map((column) => (
-                  <th key={column} className="eyebrow px-6 py-4 text-[11px] font-bold text-[var(--color-muted)] first:pl-8 last:pr-8">{column}</th>
+                  <th key={column} className={`eyebrow px-2 py-4 text-[10px] font-bold whitespace-nowrap text-[var(--color-muted)] first:pl-6 last:pr-6 ${column === "Quantité" || column === "Statut" ? "text-center" : ""} ${column === "Quantité" || column === "Statut" ? "relative -left-1.5" : ""} ${column === "Équipement" ? "pl-4" : ""} ${column === "Acquisition" ? "pl-0" : ""}`}>{column}</th>
                 ))}
               </tr>
             </thead>
@@ -271,16 +365,17 @@ export function AcquisitionWorkspace({ acquisitions }: AcquisitionWorkspaceProps
               <tbody className="divide-y divide-white/6">
                 {acquisitions.map((acquisition) => (
                   <tr key={acquisition.id} className="transition hover:bg-white/3">
-                    <td className="py-4 pr-6 pl-8">
-                      <div className="flex items-center gap-3">
+                    <td className="py-4 pr-1 pl-6 text-[13px] whitespace-nowrap text-[var(--color-muted)]">{dateFormatter.format(new Date(acquisition.listedAt))}</td>
+                    <td className="py-4 pr-2 pl-4">
+                      <div className="flex items-center gap-2.5">
                         {acquisition.imageUrl ? (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img src={acquisition.imageUrl} alt="" className="size-11 shrink-0 rounded-xl bg-white/5 object-contain p-1" />
+                          <img src={acquisition.imageUrl} alt="" className="size-9 shrink-0 rounded-lg bg-white/5 object-contain p-0.5" />
                         ) : (
-                          <span className="size-11 shrink-0 rounded-xl bg-white/5" />
+                          <span className="size-9 shrink-0 rounded-lg bg-white/5" />
                         )}
                         <span className="min-w-0">
-                          <span className="block max-w-52 truncate text-sm font-semibold text-white">{acquisition.itemName}</span>
+                          <span className="block truncate text-[13px] font-semibold text-white">{acquisition.itemName}</span>
                           <span className="mt-1 block text-xs text-[var(--color-muted)]">
                             {acquisition.itemType ?? "Équipement"}
                             {acquisition.itemLevel !== null ? ` · Niveau ${acquisition.itemLevel}` : ""}
@@ -289,16 +384,30 @@ export function AcquisitionWorkspace({ acquisitions }: AcquisitionWorkspaceProps
                         </span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-sm text-white">{acquisition.profession}</td>
-                    <td className="px-6 py-4 text-sm text-white">{numberFormatter.format(acquisition.quantity)}</td>
-                    <td className="px-6 py-4 text-sm text-white">{numberFormatter.format(acquisition.unitCost)} K</td>
-                    <td className="px-6 py-4 text-sm text-white">{numberFormatter.format(acquisition.listingPrice)} K</td>
-                    <td className="px-6 py-4 text-sm text-[var(--color-muted)]">{dateFormatter.format(new Date(acquisition.listedAt))}</td>
-                    <td className="py-4 pr-8 pl-6">
-                      <span className="inline-flex items-center gap-2 rounded-full bg-[var(--color-lime)]/10 px-3 py-1.5 text-xs font-semibold text-[var(--color-lime)]">
-                        <span className="size-1.5 rounded-full bg-[var(--color-lime)]" />
-                        En vente
-                      </span>
+                    <td className="py-4 pr-2 pl-0">
+                      <div className="flex items-center gap-1.5 whitespace-nowrap">
+                        <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${acquisition.acquisitionType === "craft" ? "bg-[var(--color-lime)]/15 text-[var(--color-lime)]" : "bg-[var(--color-orange)]/15 text-[var(--color-orange)]"}`}>
+                          {acquisition.acquisitionType === "craft" ? "Craft" : "Achat"}
+                        </span>
+                        {acquisition.isForgemaged && (
+                          <span className="rounded-full bg-white/12 px-2 py-1 text-[11px] font-bold text-white">FM</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-2 py-4 text-center text-[13px] text-white"><span className="inline-block -translate-x-1.5">{numberFormatter.format(acquisition.quantity)}</span></td>
+                    <td className="px-3 py-4 text-[13px] whitespace-nowrap text-white">{numberFormatter.format(acquisition.unitCost)} K</td>
+                    <td className="px-3 py-4 text-[13px] whitespace-nowrap text-white">{numberFormatter.format(acquisition.listingPrice)} K</td>
+                    <td className="px-3 py-4 text-[13px] whitespace-nowrap text-white">{numberFormatter.format(calculateListingTax(acquisition.initialListingPrice, acquisition.quantity + acquisition.quantitySold))} K</td>
+                    <td className="px-3 py-4 text-[13px]"><PotentialProfitRate acquisition={acquisition} /></td>
+                    <td className="px-3 py-4 text-[13px]"><PotentialUnitProfit acquisition={acquisition} /></td>
+                    <td className="py-4 pr-6 pl-2">
+                      <div className="relative flex items-center justify-center whitespace-nowrap">
+                        <span className={`relative -left-1.5 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${acquisition.quantitySold > 0 ? "bg-[var(--color-orange)]/10 text-[var(--color-orange)]" : "bg-[var(--color-lime)]/10 text-[var(--color-lime)]"}`}>
+                          <span className={`size-1.5 rounded-full ${acquisition.quantitySold > 0 ? "bg-[var(--color-orange)]" : "bg-[var(--color-lime)]"}`} />
+                          {acquisition.quantitySold > 0 ? "Partiellement vendu" : "En vente"}
+                        </span>
+                        <button type="button" aria-label={`Actions pour ${acquisition.itemName}`} className="absolute right-0 inline-flex h-8 w-7 items-center justify-center text-sm font-bold tracking-widest text-[var(--color-muted)] transition hover:text-white">•••</button>
+                      </div>
                     </td>
                   </tr>
                 ))}
