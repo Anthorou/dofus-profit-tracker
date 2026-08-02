@@ -9,6 +9,11 @@ import {
 } from "@/features/items/actions/create-acquisition";
 import { deleteAcquisitionAction } from "@/features/items/actions/delete-acquisition";
 import {
+  updateAcquisitionAction,
+  type UpdateAcquisitionInput,
+} from "@/features/items/actions/update-acquisition";
+import { updateListingPriceAction } from "@/features/items/actions/update-listing-price";
+import {
   calculateListingTax,
   calculatePotentialProfitRate,
   calculatePotentialUnitProfit,
@@ -151,6 +156,8 @@ export function AcquisitionWorkspace({ acquisitions }: AcquisitionWorkspaceProps
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [isDeleting, startDeletionTransition] = useTransition();
+  const [isUpdating, startUpdateTransition] = useTransition();
+  const [isUpdatingListingPrice, startListingPriceTransition] = useTransition();
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [items, setItems] = useState<EquipmentSearchResult[]>([]);
@@ -168,6 +175,11 @@ export function AcquisitionWorkspace({ acquisitions }: AcquisitionWorkspaceProps
   const [actionsMenu, setActionsMenu] = useState<ActionsMenuState | null>(null);
   const [deletionCandidate, setDeletionCandidate] = useState<ActiveAcquisition | null>(null);
   const [deletionError, setDeletionError] = useState<string | null>(null);
+  const [editingAcquisition, setEditingAcquisition] = useState<ActiveAcquisition | null>(null);
+  const [editError, setEditError] = useState<string | null>(null);
+  const [isPriceChangeConfirmationOpen, setIsPriceChangeConfirmationOpen] = useState(false);
+  const [listingPriceCandidate, setListingPriceCandidate] = useState<ActiveAcquisition | null>(null);
+  const [listingPriceError, setListingPriceError] = useState<string | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const professionMenuRef = useRef<HTMLDivElement>(null);
   const actionsMenuRef = useRef<HTMLDivElement>(null);
@@ -296,6 +308,130 @@ export function AcquisitionWorkspace({ acquisitions }: AcquisitionWorkspaceProps
     });
   }
 
+  function openEditModal(acquisition: ActiveAcquisition) {
+    setEditingAcquisition(acquisition);
+    setAcquisitionType(acquisition.acquisitionType);
+    setIsForgemaged(acquisition.isForgemaged);
+    setProfession(acquisition.profession);
+    setQuantity(String(acquisition.quantity));
+    setUnitCost(String(acquisition.unitCost));
+    setListingPrice(String(acquisition.initialListingPrice));
+    setEditError(null);
+    setActionsMenu(null);
+  }
+
+  function closeEditModal() {
+    setEditingAcquisition(null);
+    setAcquisitionType("craft");
+    setIsForgemaged(false);
+    setProfession("");
+    setIsProfessionMenuOpen(false);
+    setQuantity("1");
+    setUnitCost("");
+    setListingPrice("");
+    setIsPriceChangeConfirmationOpen(false);
+    setEditError(null);
+  }
+
+  const isEditFormValid =
+    editingAcquisition !== null &&
+    profession !== "" &&
+    quantity !== "" &&
+    Number.isSafeInteger(parsedQuantity) &&
+    parsedQuantity > 0 &&
+    unitCost !== "" &&
+    Number.isSafeInteger(parsedUnitCost) &&
+    parsedUnitCost >= 0 &&
+    listingPrice !== "" &&
+    Number.isSafeInteger(parsedListingPrice) &&
+    parsedListingPrice > 0;
+
+  function saveEditedAcquisition() {
+    if (!editingAcquisition || !isEditFormValid) {
+      setEditError("Remplis tous les champs obligatoires correctement.");
+      return;
+    }
+
+    const input: UpdateAcquisitionInput = {
+      id: editingAcquisition.id,
+      acquisitionType,
+      profession: profession as UpdateAcquisitionInput["profession"],
+      quantity: parsedQuantity,
+      unitCost: parsedUnitCost,
+      initialListingPrice: parsedListingPrice,
+      isForgemaged,
+    };
+
+    setEditError(null);
+    startUpdateTransition(async () => {
+      const result = await updateAcquisitionAction(input);
+
+      if (!result.success) {
+        setIsPriceChangeConfirmationOpen(false);
+        setEditError(result.message);
+        return;
+      }
+
+      closeEditModal();
+      router.refresh();
+    });
+  }
+
+  function submitEditedAcquisition() {
+    if (!editingAcquisition || !isEditFormValid) {
+      setEditError("Remplis tous les champs obligatoires correctement.");
+      return;
+    }
+
+    if (parsedListingPrice !== editingAcquisition.initialListingPrice) {
+      setIsPriceChangeConfirmationOpen(true);
+      return;
+    }
+
+    saveEditedAcquisition();
+  }
+
+  function openListingPriceModal(acquisition: ActiveAcquisition) {
+    setListingPriceCandidate(acquisition);
+    setListingPrice(String(acquisition.listingPrice));
+    setListingPriceError(null);
+    setActionsMenu(null);
+  }
+
+  function closeListingPriceModal() {
+    setListingPriceCandidate(null);
+    setListingPrice("");
+    setListingPriceError(null);
+  }
+
+  function saveListingPrice() {
+    if (
+      !listingPriceCandidate ||
+      listingPrice === "" ||
+      !Number.isSafeInteger(parsedListingPrice) ||
+      parsedListingPrice <= 0
+    ) {
+      setListingPriceError("Entre un prix affiché valide.");
+      return;
+    }
+
+    setListingPriceError(null);
+    startListingPriceTransition(async () => {
+      const result = await updateListingPriceAction({
+        id: listingPriceCandidate.id,
+        listingPrice: parsedListingPrice,
+      });
+
+      if (!result.success) {
+        setListingPriceError(result.message);
+        return;
+      }
+
+      closeListingPriceModal();
+      router.refresh();
+    });
+  }
+
   useEffect(() => {
     if (!isOpen) return;
 
@@ -369,6 +505,38 @@ export function AcquisitionWorkspace({ acquisitions }: AcquisitionWorkspaceProps
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [deletionCandidate]);
+
+  useEffect(() => {
+    if (!editingAcquisition) return;
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+
+      if (isPriceChangeConfirmationOpen) {
+        setIsPriceChangeConfirmationOpen(false);
+      } else if (isProfessionMenuOpen) {
+        setIsProfessionMenuOpen(false);
+      } else {
+        closeEditModal();
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [editingAcquisition, isPriceChangeConfirmationOpen, isProfessionMenuOpen]);
+
+  useEffect(() => {
+    if (!listingPriceCandidate) return;
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape" && !isUpdatingListingPrice) {
+        closeListingPriceModal();
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [listingPriceCandidate, isUpdatingListingPrice]);
 
   useEffect(() => {
     const normalizedQuery = query.trim();
@@ -484,7 +652,12 @@ export function AcquisitionWorkspace({ acquisitions }: AcquisitionWorkspaceProps
                     </td>
                     <td className="px-2 py-4 text-center text-[13px] text-white"><span className="inline-block -translate-x-1.5">{numberFormatter.format(acquisition.quantity)}</span></td>
                     <td className="px-3 py-4 text-[13px] whitespace-nowrap text-white">{numberFormatter.format(acquisition.unitCost)} K</td>
-                    <td className="px-3 py-4 text-[13px] whitespace-nowrap text-white">{numberFormatter.format(acquisition.listingPrice)} K</td>
+                    <td className="px-3 py-4 text-[13px] whitespace-nowrap text-white">
+                      <span className="block">{numberFormatter.format(acquisition.listingPrice)} K</span>
+                      {acquisition.listingPrice !== acquisition.initialListingPrice && (
+                        <span className="mt-1 block text-[10px] text-[var(--color-muted)]">Initial : {numberFormatter.format(acquisition.initialListingPrice)} K</span>
+                      )}
+                    </td>
                     <td className="px-3 py-4 text-[13px] whitespace-nowrap text-white">{numberFormatter.format(calculateListingTax(acquisition.initialListingPrice, 1))} K</td>
                     <td className="px-3 py-4 text-[13px]"><PotentialProfitRate acquisition={acquisition} /></td>
                     <td className="px-3 py-4 text-[13px]"><PotentialUnitProfit acquisition={acquisition} /></td>
@@ -521,21 +694,32 @@ export function AcquisitionWorkspace({ acquisitions }: AcquisitionWorkspaceProps
           style={{ top: actionsMenu.top, left: actionsMenu.left }}
         >
           <button type="button" role="menuitem" disabled className="flex w-full cursor-not-allowed items-center rounded-xl px-3 py-2.5 text-left text-sm text-white/55">
-            Modifier l’acquisition
-          </button>
-          <button type="button" role="menuitem" disabled className="flex w-full cursor-not-allowed items-center rounded-xl px-3 py-2.5 text-left text-sm text-white/55">
             Enregistrer une vente
+          </button>
+          <button type="button" role="menuitem" onClick={() => openListingPriceModal(actionsMenu.acquisition)} className="flex w-full items-center rounded-xl px-3 py-2.5 text-left text-sm text-white transition hover:bg-white/7">
+            Modifier le prix affiché
           </button>
           <div className="my-1 border-t border-white/8" />
           <button
             type="button"
             role="menuitem"
+            disabled={actionsMenu.acquisition.quantitySold > 0}
+            onClick={() => openEditModal(actionsMenu.acquisition)}
+            className="flex w-full items-center rounded-xl px-3 py-2.5 text-left text-sm text-white transition hover:bg-white/7 disabled:cursor-not-allowed disabled:text-white/30 disabled:hover:bg-transparent"
+          >
+            Modifier l’entrée
+          </button>
+          <div className="my-1 border-t border-white/8" />
+          <button
+            type="button"
+            role="menuitem"
+            disabled={actionsMenu.acquisition.quantitySold > 0}
             onClick={() => {
               setDeletionError(null);
               setDeletionCandidate(actionsMenu.acquisition);
               setActionsMenu(null);
             }}
-            className="flex w-full items-center rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-red-400 transition hover:bg-red-400/10"
+            className="flex w-full items-center rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-red-400 transition hover:bg-red-400/10 disabled:cursor-not-allowed disabled:text-red-400/30 disabled:hover:bg-transparent"
           >
             Supprimer l’entrée
           </button>
@@ -576,6 +760,188 @@ export function AcquisitionWorkspace({ acquisitions }: AcquisitionWorkspaceProps
             <div className="mt-7 flex flex-col-reverse justify-center gap-3 sm:flex-row">
               <button type="button" disabled={isDeleting} onClick={() => { setDeletionCandidate(null); setDeletionError(null); }} className="rounded-full border border-white/10 px-5 py-3 text-sm font-semibold text-white transition hover:border-white/25 disabled:cursor-not-allowed disabled:opacity-50">Annuler</button>
               <button type="button" disabled={isDeleting} onClick={confirmDeletion} className="rounded-full bg-red-400 px-5 py-3 text-sm font-semibold text-black transition hover:bg-red-300 disabled:cursor-not-allowed disabled:opacity-60">{isDeleting ? "Suppression…" : "Supprimer"}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {listingPriceCandidate && (
+        <div
+          className="fixed inset-0 z-70 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !isUpdatingListingPrice) {
+              closeListingPriceModal();
+            }
+          }}
+        >
+          <div role="dialog" aria-modal="true" aria-labelledby="listing-price-title" className="surface-card w-full max-w-md rounded-[28px] p-6 sm:p-8">
+            <p className="eyebrow text-xs text-[var(--color-lime)]">Prix actuel</p>
+            <h2 id="listing-price-title" className="font-display mt-2 text-3xl font-bold uppercase text-white">Modifier le prix affiché</h2>
+
+            <div className="mt-5 flex items-center gap-3 rounded-2xl border border-white/8 bg-black/20 p-3">
+              {listingPriceCandidate.imageUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={listingPriceCandidate.imageUrl} alt="" className="size-11 shrink-0 rounded-lg bg-white/5 object-contain p-0.5" />
+              ) : (
+                <span className="size-11 shrink-0 rounded-lg bg-white/5" />
+              )}
+              <p className="min-w-0 truncate text-sm font-semibold text-white">{listingPriceCandidate.itemName}</p>
+            </div>
+
+            <label className="mt-5 block">
+              <span className="eyebrow text-xs text-white">Nouveau prix affiché</span>
+              <div className="mt-2 flex h-14 items-center rounded-2xl border border-white/10 bg-black/25 px-4 transition focus-within:border-[var(--color-lime)]/70">
+                <input autoFocus type="text" inputMode="numeric" pattern="[0-9]*" required value={listingPrice} onChange={(event) => setListingPrice(event.target.value.replace(/\D/g, ""))} className="min-w-0 flex-1 bg-transparent text-sm text-white outline-none" />
+                <span className="text-xs font-semibold text-[var(--color-muted)]">K</span>
+              </div>
+            </label>
+
+            {listingPriceError && (
+              <p role="alert" className="mt-4 rounded-2xl border border-[var(--color-orange)]/20 bg-[var(--color-orange)]/8 px-4 py-3 text-sm text-[var(--color-orange)]">{listingPriceError}</p>
+            )}
+
+            <div className="mt-7 flex justify-center gap-3">
+              <button type="button" disabled={isUpdatingListingPrice} onClick={closeListingPriceModal} className="rounded-full border border-white/10 px-5 py-3 text-sm font-semibold text-white transition hover:border-white/25 disabled:cursor-not-allowed disabled:opacity-50">Annuler</button>
+              <button type="button" disabled={isUpdatingListingPrice || listingPrice === "" || parsedListingPrice <= 0} onClick={saveListingPrice} className="rounded-full bg-[var(--color-lime)] px-5 py-3 text-sm font-semibold text-black transition hover:bg-[var(--color-lime-soft)] disabled:cursor-not-allowed disabled:bg-white/8 disabled:text-[var(--color-muted)]">{isUpdatingListingPrice ? "Enregistrement…" : "Enregistrer"}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {editingAcquisition && (
+        <div
+          className="fixed inset-0 z-70 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !isUpdating) closeEditModal();
+          }}
+        >
+          <div role="dialog" aria-modal="true" aria-labelledby="edit-acquisition-title" className="surface-card w-full max-w-2xl overflow-hidden rounded-[28px]">
+            <div className="max-h-[calc(100vh-32px)] overflow-y-auto">
+              <div className="flex items-start justify-between gap-6 border-b border-white/6 px-6 py-5 sm:px-8">
+                <div>
+                  <p className="eyebrow text-xs text-[var(--color-orange)]">Correction</p>
+                  <h2 id="edit-acquisition-title" className="font-display mt-2 text-4xl font-bold uppercase text-white">Modifier l’entrée</h2>
+                </div>
+                <button type="button" disabled={isUpdating} onClick={closeEditModal} aria-label="Fermer" className="flex size-10 shrink-0 items-center justify-center rounded-full border border-white/10 text-xl text-[var(--color-muted)] transition hover:border-white/25 hover:text-white disabled:cursor-not-allowed disabled:opacity-50">×</button>
+              </div>
+
+              <form onSubmit={(event) => { event.preventDefault(); submitEditedAcquisition(); }} className="px-6 pt-5 pb-6 sm:px-8">
+                <div className="flex items-center gap-4 rounded-2xl border border-white/8 bg-black/20 p-4">
+                  {editingAcquisition.imageUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={editingAcquisition.imageUrl} alt="" className="size-16 shrink-0 rounded-xl bg-white/5 object-contain p-1" />
+                  ) : (
+                    <span className="size-16 shrink-0 rounded-xl bg-white/5" />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-semibold text-white">{editingAcquisition.itemName}</p>
+                    <p className="mt-1 text-xs text-[var(--color-muted)]">
+                      {editingAcquisition.itemType ?? "Équipement"}
+                      {editingAcquisition.itemLevel !== null ? ` · Niveau ${editingAcquisition.itemLevel}` : ""}
+                    </p>
+                  </div>
+                  <span className="rounded-full border border-white/8 px-3 py-1.5 text-[10px] font-semibold text-[var(--color-muted)]">Équipement verrouillé</span>
+                </div>
+
+                <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                  <fieldset>
+                    <legend className="eyebrow text-xs text-white">Type d’acquisition</legend>
+                    <div className="mt-2 grid h-14 grid-cols-2 rounded-2xl border border-white/10 bg-black/25 p-1">
+                      {(["craft", "purchase"] as const).map((type) => (
+                        <button key={type} type="button" onClick={() => setAcquisitionType(type)} className={`h-full rounded-xl px-4 text-sm font-semibold transition ${acquisitionType === type ? "bg-[var(--color-lime)] text-black" : "text-[var(--color-muted)] hover:text-white"}`}>
+                          {type === "craft" ? "Craft" : "Achat"}
+                        </button>
+                      ))}
+                    </div>
+                  </fieldset>
+
+                  <fieldset>
+                    <legend className="eyebrow text-xs text-white">Équipement forgemagé</legend>
+                    <div className="mt-2 grid h-14 grid-cols-2 rounded-2xl border border-white/10 bg-black/25 p-1">
+                      {[false, true].map((value) => (
+                        <button key={String(value)} type="button" onClick={() => setIsForgemaged(value)} className={`h-full rounded-xl px-4 text-sm font-semibold transition ${isForgemaged === value ? "bg-white text-black" : "text-[var(--color-muted)] hover:text-white"}`}>
+                          {value ? "Oui" : "Non"}
+                        </button>
+                      ))}
+                    </div>
+                  </fieldset>
+
+                  <div ref={professionMenuRef} className="relative sm:col-span-2">
+                    <span className="eyebrow text-xs text-white">Métier</span>
+                    <button type="button" aria-haspopup="listbox" aria-expanded={isProfessionMenuOpen} onClick={() => setIsProfessionMenuOpen((isMenuOpen) => !isMenuOpen)} className={`mt-2 flex h-14 w-full items-center justify-between rounded-2xl border bg-black/25 px-4 text-left text-sm outline-none transition ${isProfessionMenuOpen ? "border-[var(--color-lime)]/70" : "border-white/10 hover:border-white/20"}`}>
+                      <span className="text-white">{profession}</span>
+                      <span aria-hidden="true" className={`text-xs text-[var(--color-muted)] transition ${isProfessionMenuOpen ? "rotate-180" : ""}`}>⌄</span>
+                    </button>
+                    {isProfessionMenuOpen && (
+                      <div role="listbox" aria-label="Métier" className="absolute right-0 left-0 z-20 mt-2 grid grid-cols-2 gap-1 overflow-hidden rounded-2xl border border-white/10 bg-[#202020] p-1.5 shadow-2xl shadow-black/60">
+                        {professions.map((professionName) => (
+                          <button key={professionName} type="button" role="option" aria-selected={profession === professionName} onClick={() => { setProfession(professionName); setIsProfessionMenuOpen(false); }} className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm transition ${profession === professionName ? "bg-[var(--color-lime)] text-black" : "text-white hover:bg-white/7"}`}>
+                            {professionName}
+                            {profession === professionName && <span aria-hidden="true">✓</span>}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <label className="block">
+                    <span className="eyebrow text-xs text-white">Coût d’acquisition unitaire</span>
+                    <div className="mt-2 flex h-14 items-center rounded-2xl border border-white/10 bg-black/25 px-4 transition focus-within:border-[var(--color-lime)]/70">
+                      <input type="text" inputMode="numeric" pattern="[0-9]*" required value={unitCost} onChange={(event) => setUnitCost(event.target.value.replace(/\D/g, ""))} className="min-w-0 flex-1 bg-transparent text-sm text-white outline-none" />
+                      <span className="text-xs font-semibold text-[var(--color-muted)]">K</span>
+                    </div>
+                  </label>
+
+                  <label className="block">
+                    <span className="eyebrow text-xs text-white">Prix initial affiché</span>
+                    <div className="mt-2 flex h-14 items-center rounded-2xl border border-white/10 bg-black/25 px-4 transition focus-within:border-[var(--color-orange)]/70">
+                      <input type="text" inputMode="numeric" pattern="[0-9]*" required value={listingPrice} onChange={(event) => setListingPrice(event.target.value.replace(/\D/g, ""))} className="min-w-0 flex-1 bg-transparent text-sm text-white outline-none" />
+                      <span className="text-xs font-semibold text-[var(--color-muted)]">K</span>
+                    </div>
+                  </label>
+
+                  <label className="block sm:col-span-2">
+                    <span className="eyebrow text-xs text-white">Quantité</span>
+                    <input type="text" inputMode="numeric" pattern="[1-9][0-9]*" required value={quantity} onChange={(event) => setQuantity(event.target.value.replace(/\D/g, ""))} className="mt-2 h-14 w-full rounded-2xl border border-white/10 bg-black/25 px-4 text-sm text-white outline-none transition focus:border-[var(--color-lime)]/70" />
+                  </label>
+                </div>
+
+                {editError && (
+                  <p role="alert" className="mt-5 rounded-2xl border border-[var(--color-orange)]/20 bg-[var(--color-orange)]/8 px-4 py-3 text-sm text-[var(--color-orange)]">{editError}</p>
+                )}
+                <button type="submit" disabled={!isEditFormValid || isUpdating} className="mt-5 w-full rounded-full bg-[var(--color-lime)] px-5 py-3.5 text-sm font-semibold text-black transition hover:bg-[var(--color-lime-soft)] disabled:cursor-not-allowed disabled:bg-white/8 disabled:text-[var(--color-muted)]">
+                  {isUpdating ? "Enregistrement…" : "Enregistrer les modifications"}
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {editingAcquisition && isPriceChangeConfirmationOpen && (
+        <div className="fixed inset-0 z-80 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
+          <div role="alertdialog" aria-modal="true" aria-labelledby="price-change-title" className="surface-card w-full max-w-md rounded-[28px] p-6 sm:p-8">
+            <div className="flex items-center gap-3">
+              <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-[var(--color-orange)]/10 text-xl text-[var(--color-orange)]">!</div>
+              <p className="eyebrow text-xs text-[var(--color-orange)]">Prix initial</p>
+            </div>
+            <h2 id="price-change-title" className="font-display mt-5 text-3xl font-bold uppercase text-white">Confirmer la correction?</h2>
+            <p className="mt-3 text-sm leading-6 text-[var(--color-muted)]">
+              Modifier le prix initial changera le calcul de la taxe HDV. Cette action représente une correction du prix de première mise en vente.
+            </p>
+            <div className="mt-5 grid grid-cols-2 gap-3 rounded-2xl border border-white/8 bg-black/20 p-4 text-sm">
+              <div>
+                <p className="text-xs text-[var(--color-muted)]">Ancien prix</p>
+                <p className="mt-1 font-semibold text-white">{numberFormatter.format(editingAcquisition.initialListingPrice)} K</p>
+              </div>
+              <div>
+                <p className="text-xs text-[var(--color-muted)]">Nouveau prix</p>
+                <p className="mt-1 font-semibold text-[var(--color-orange)]">{numberFormatter.format(parsedListingPrice)} K</p>
+              </div>
+            </div>
+            <div className="mt-7 flex justify-center gap-3">
+              <button type="button" disabled={isUpdating} onClick={() => setIsPriceChangeConfirmationOpen(false)} className="rounded-full border border-white/10 px-5 py-3 text-sm font-semibold text-white transition hover:border-white/25 disabled:opacity-50">Annuler</button>
+              <button type="button" disabled={isUpdating} onClick={saveEditedAcquisition} className="rounded-full bg-[var(--color-orange)] px-5 py-3 text-sm font-semibold text-black transition hover:bg-amber-300 disabled:opacity-60">{isUpdating ? "Enregistrement…" : "Confirmer"}</button>
             </div>
           </div>
         </div>
