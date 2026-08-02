@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 
 import { logout } from "@/app/(auth)/actions";
 import { BrandMark } from "@/components/brand-mark";
+import { AcquisitionWorkspace } from "@/features/items/components/acquisition-workspace";
 import { createClient } from "@/lib/supabase/server";
 
 const previewCards = [
@@ -112,35 +113,7 @@ export default async function DashboardPage() {
             ))}
           </div>
 
-          <article className="surface-card mt-4 overflow-hidden rounded-[28px]">
-            <div className="grid lg:grid-cols-[1.2fr_0.8fr]">
-              <div className="p-7 sm:p-10">
-                <p className="eyebrow text-xs text-[var(--color-orange)]">
-                  Prochaine étape
-                </p>
-                <h2 className="font-display mt-3 text-4xl font-bold uppercase text-white sm:text-5xl">
-                  Construire les fondations de vos données
-                </h2>
-                <p className="mt-4 max-w-2xl leading-7 text-[var(--color-muted)]">
-                  Le modèle des objets, des lots d’acquisition et des ventes
-                  sera défini avec vous avant d’ajouter les premiers formulaires.
-                </p>
-              </div>
-              <div className="flex min-h-56 items-end gap-3 bg-black/30 px-7 pt-10 sm:px-10">
-                {[42, 68, 54, 82, 63, 92, 74].map((height, index) => (
-                  <div
-                    key={height}
-                    className={`flex-1 rounded-t-full ${
-                      index === 4
-                        ? "bg-[var(--color-orange)]"
-                        : "bg-[var(--color-lime)]"
-                    }`}
-                    style={{ height: `${height}%` }}
-                  />
-                ))}
-              </div>
-            </div>
-          </article>
+          <AcquisitionWorkspace />
         </section>
       </div>
     </main>
