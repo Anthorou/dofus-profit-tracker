@@ -135,8 +135,9 @@ export function AcquisitionWorkspace() {
 
       {isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm" onMouseDown={(event) => { if (event.target === event.currentTarget) closeModal(); }}>
-          <div role="dialog" aria-modal="true" aria-labelledby="acquisition-modal-title" className="surface-card max-h-[min(760px,calc(100vh-32px))] w-full max-w-2xl overflow-y-auto rounded-[28px]">
-            <div className="flex items-start justify-between gap-6 border-b border-white/6 p-6 sm:p-8">
+          <div role="dialog" aria-modal="true" aria-labelledby="acquisition-modal-title" className="surface-card w-full max-w-2xl overflow-hidden rounded-[28px]">
+            <div className="max-h-[calc(100vh-32px)] overflow-y-auto">
+            <div className="flex items-start justify-between gap-6 border-b border-white/6 px-6 py-5 sm:px-8">
               <div>
                 <p className="eyebrow text-xs text-[var(--color-orange)]">Nouvelle entrée</p>
                 <h2 id="acquisition-modal-title" className="font-display mt-2 text-4xl font-bold uppercase text-white">Ajouter une acquisition</h2>
@@ -144,7 +145,7 @@ export function AcquisitionWorkspace() {
               <button type="button" onClick={closeModal} aria-label="Fermer" className="flex size-10 shrink-0 items-center justify-center rounded-full border border-white/10 text-xl text-[var(--color-muted)] transition hover:border-white/25 hover:text-white">×</button>
             </div>
 
-            <div className="p-6 sm:p-8">
+            <div className="px-6 pt-5 pb-6 sm:px-8">
               <label htmlFor="equipment-search" className="eyebrow text-xs text-white">Rechercher un équipement</label>
               <div className="mt-3 flex items-center gap-3 rounded-2xl border border-white/10 bg-black/25 px-4 transition focus-within:border-[var(--color-lime)]/70">
                 <span aria-hidden="true" className="text-[var(--color-muted)]">⌕</span>
@@ -153,21 +154,18 @@ export function AcquisitionWorkspace() {
               </div>
               <p className="mt-2 text-xs text-[var(--color-muted)]">Saisissez au moins deux caractères. Un maximum de huit équipements sera affiché.</p>
 
-              <div className="mt-6 overflow-hidden rounded-2xl border border-white/8 bg-black/20">
+              <div className="mt-3 overflow-hidden rounded-2xl border border-white/8 bg-black/20">
                 {error ? (
                   <p className="px-5 py-8 text-center text-sm text-[var(--color-orange)]">{error}</p>
                 ) : items.length > 0 ? (
                   <ul className="divide-y divide-white/6">
                     {items.map((item) => (
                       <li key={item.externalId}>
-                        <button type="button" className="flex w-full items-center gap-4 px-4 py-3 text-left transition hover:bg-white/5">
+                        <button type="button" className="flex w-full items-center gap-3 px-4 py-2 text-left transition hover:bg-white/5">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={item.imageUrl} alt="" className="size-14 rounded-xl bg-white/5 object-contain p-1" />
-                          <span className="min-w-0 flex-1">
-                            <span className="block truncate text-sm font-semibold text-white">{item.name}</span>
-                            <span className="mt-1 block text-xs text-[var(--color-muted)]">{item.type} · Niveau {item.level}</span>
-                          </span>
-                          <span className="text-[var(--color-lime)]">→</span>
+                          <img src={item.imageUrl} alt="" className="size-10 shrink-0 rounded-lg bg-white/5 object-contain p-0.5" />
+                          <span className="min-w-0 flex-1 truncate text-sm font-semibold text-white">{item.name}</span>
+                          <span className="shrink-0 text-right text-xs text-[var(--color-muted)]">{item.type} · Niveau {item.level}</span>
                         </button>
                       </li>
                     ))}
@@ -178,6 +176,7 @@ export function AcquisitionWorkspace() {
                   </p>
                 )}
               </div>
+            </div>
             </div>
           </div>
         </div>
