@@ -3,28 +3,8 @@ import { redirect } from "next/navigation";
 import { logout } from "@/app/(auth)/actions";
 import { BrandMark } from "@/components/brand-mark";
 import { AcquisitionWorkspace } from "@/features/items/components/acquisition-workspace";
+import type { ActiveAcquisition } from "@/features/items/acquisitions/types";
 import { createClient } from "@/lib/supabase/server";
-
-const previewCards = [
-  {
-    label: "Profit total",
-    value: "—",
-    detail: "Disponible après vos premières ventes",
-    accent: "lime",
-  },
-  {
-    label: "Ventes actives",
-    value: "—",
-    detail: "Vos objets en HDV apparaîtront ici",
-    accent: "orange",
-  },
-  {
-    label: "Objets vendus",
-    value: "—",
-    detail: "Historique à venir",
-    accent: "white",
-  },
-];
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -35,6 +15,77 @@ export default async function DashboardPage() {
   if (!user) {
     redirect("/login");
   }
+
+  const { data: acquisitionRows, error: acquisitionsError } = await supabase
+    .from("acquisition_lots")
+    .select(`
+      id,
+      acquisition_type,
+      acquisition_unit_cost,
+      current_listing_unit_price,
+      is_forgemaged,
+      quantity_acquired,
+      listed_at,
+      items!inner(name, image_url, item_type, level),
+      professions!inner(name),
+      sales(quantity_sold)
+    `)
+    .eq("user_id", user.id)
+    .order("listed_at", { ascending: false });
+
+  if (acquisitionsError) {
+    console.error("Could not load active acquisitions", acquisitionsError);
+  }
+
+  const acquisitions: ActiveAcquisition[] = (acquisitionRows ?? [])
+    .map((row) => {
+      const quantitySold = row.sales.reduce(
+        (total, sale) => total + sale.quantity_sold,
+        0,
+      );
+
+      return {
+        id: row.id,
+        itemName: row.items.name,
+        itemType: row.items.item_type,
+        itemLevel: row.items.level,
+        imageUrl: row.items.image_url,
+        profession: row.professions.name,
+        acquisitionType: row.acquisition_type,
+        isForgemaged: row.is_forgemaged,
+        quantity: row.quantity_acquired - quantitySold,
+        unitCost: row.acquisition_unit_cost,
+        listingPrice: row.current_listing_unit_price,
+        listedAt: row.listed_at,
+      };
+    })
+    .filter((acquisition) => acquisition.quantity > 0);
+
+  const activeQuantity = acquisitions.reduce(
+    (total, acquisition) => total + acquisition.quantity,
+    0,
+  );
+
+  const previewCards = [
+    {
+      label: "Profit total",
+      value: "—",
+      detail: "Disponible après vos premières ventes",
+      accent: "lime",
+    },
+    {
+      label: "Ventes actives",
+      value: activeQuantity.toLocaleString("fr-CA"),
+      detail: `${acquisitions.length} lot${acquisitions.length === 1 ? "" : "s"} en cours`,
+      accent: "orange",
+    },
+    {
+      label: "Objets vendus",
+      value: "—",
+      detail: "Historique à venir",
+      accent: "white",
+    },
+  ];
 
   return (
     <main className="app-shell">
@@ -113,7 +164,7 @@ export default async function DashboardPage() {
             ))}
           </div>
 
-          <AcquisitionWorkspace />
+          <AcquisitionWorkspace acquisitions={acquisitions} />
         </section>
       </div>
     </main>

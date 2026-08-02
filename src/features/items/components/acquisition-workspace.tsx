@@ -1,7 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState, useTransition } from "react";
 
+import {
+  createAcquisitionAction,
+  type CreateAcquisitionInput,
+} from "@/features/items/actions/create-acquisition";
+import type { ActiveAcquisition } from "@/features/items/acquisitions/types";
 import type { EquipmentSearchResult } from "@/features/items/dofusdude/types";
 
 type SearchResponse =
@@ -17,6 +23,13 @@ const tableColumns = [
   "Mise en vente",
   "Statut",
 ];
+
+const numberFormatter = new Intl.NumberFormat("fr-CA");
+const dateFormatter = new Intl.DateTimeFormat("fr-CA", {
+  year: "numeric",
+  month: "short",
+  day: "numeric",
+});
 
 const professions = [
   "Bijoutier",
@@ -41,7 +54,13 @@ function suggestProfession(itemType: string) {
   return "";
 }
 
-export function AcquisitionWorkspace() {
+type AcquisitionWorkspaceProps = {
+  acquisitions: ActiveAcquisition[];
+};
+
+export function AcquisitionWorkspace({ acquisitions }: AcquisitionWorkspaceProps) {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [items, setItems] = useState<EquipmentSearchResult[]>([]);
@@ -55,6 +74,7 @@ export function AcquisitionWorkspace() {
   const [unitCost, setUnitCost] = useState("");
   const [listingPrice, setListingPrice] = useState("");
   const [isForgemaged, setIsForgemaged] = useState(false);
+  const [submissionError, setSubmissionError] = useState<string | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const professionMenuRef = useRef<HTMLDivElement>(null);
 
@@ -71,6 +91,7 @@ export function AcquisitionWorkspace() {
     setUnitCost("");
     setListingPrice("");
     setIsForgemaged(false);
+    setSubmissionError(null);
   }
 
   function selectItem(item: EquipmentSearchResult) {
@@ -79,12 +100,60 @@ export function AcquisitionWorkspace() {
     setQuery("");
     setItems([]);
     setError(null);
+    setSubmissionError(null);
   }
 
   function changeItem() {
     setSelectedItem(null);
     setProfession("");
     setIsProfessionMenuOpen(false);
+    setSubmissionError(null);
+  }
+
+  const parsedQuantity = Number(quantity);
+  const parsedUnitCost = Number(unitCost);
+  const parsedListingPrice = Number(listingPrice);
+  const isFormValid =
+    selectedItem !== null &&
+    profession !== "" &&
+    quantity !== "" &&
+    Number.isSafeInteger(parsedQuantity) &&
+    parsedQuantity > 0 &&
+    unitCost !== "" &&
+    Number.isSafeInteger(parsedUnitCost) &&
+    parsedUnitCost >= 0 &&
+    listingPrice !== "" &&
+    Number.isSafeInteger(parsedListingPrice) &&
+    parsedListingPrice > 0;
+
+  function submitAcquisition() {
+    if (!selectedItem || !isFormValid) {
+      setSubmissionError("Remplis tous les champs obligatoires correctement.");
+      return;
+    }
+
+    const input: CreateAcquisitionInput = {
+      item: selectedItem,
+      acquisitionType,
+      profession: profession as CreateAcquisitionInput["profession"],
+      quantity: parsedQuantity,
+      unitCost: parsedUnitCost,
+      listingPrice: parsedListingPrice,
+      isForgemaged,
+    };
+
+    setSubmissionError(null);
+    startTransition(async () => {
+      const result = await createAcquisitionAction(input);
+
+      if (!result.success) {
+        setSubmissionError(result.message);
+        return;
+      }
+
+      closeModal();
+      router.refresh();
+    });
   }
 
   function updateQuery(value: string) {
@@ -198,12 +267,51 @@ export function AcquisitionWorkspace() {
                 ))}
               </tr>
             </thead>
+            {acquisitions.length > 0 && (
+              <tbody className="divide-y divide-white/6">
+                {acquisitions.map((acquisition) => (
+                  <tr key={acquisition.id} className="transition hover:bg-white/3">
+                    <td className="py-4 pr-6 pl-8">
+                      <div className="flex items-center gap-3">
+                        {acquisition.imageUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={acquisition.imageUrl} alt="" className="size-11 shrink-0 rounded-xl bg-white/5 object-contain p-1" />
+                        ) : (
+                          <span className="size-11 shrink-0 rounded-xl bg-white/5" />
+                        )}
+                        <span className="min-w-0">
+                          <span className="block max-w-52 truncate text-sm font-semibold text-white">{acquisition.itemName}</span>
+                          <span className="mt-1 block text-xs text-[var(--color-muted)]">
+                            {acquisition.itemType ?? "Équipement"}
+                            {acquisition.itemLevel !== null ? ` · Niveau ${acquisition.itemLevel}` : ""}
+                            {acquisition.isForgemaged ? " · FM" : ""}
+                          </span>
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-white">{acquisition.profession}</td>
+                    <td className="px-6 py-4 text-sm text-white">{numberFormatter.format(acquisition.quantity)}</td>
+                    <td className="px-6 py-4 text-sm text-white">{numberFormatter.format(acquisition.unitCost)} K</td>
+                    <td className="px-6 py-4 text-sm text-white">{numberFormatter.format(acquisition.listingPrice)} K</td>
+                    <td className="px-6 py-4 text-sm text-[var(--color-muted)]">{dateFormatter.format(new Date(acquisition.listedAt))}</td>
+                    <td className="py-4 pr-8 pl-6">
+                      <span className="inline-flex items-center gap-2 rounded-full bg-[var(--color-lime)]/10 px-3 py-1.5 text-xs font-semibold text-[var(--color-lime)]">
+                        <span className="size-1.5 rounded-full bg-[var(--color-lime)]" />
+                        En vente
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            )}
           </table>
-          <div className="flex min-h-64 flex-col items-center justify-center px-6 py-12 text-center">
-            <div className="flex size-14 items-center justify-center rounded-full border border-white/10 bg-white/4 text-2xl text-[var(--color-lime)]">+</div>
-            <p className="mt-5 font-semibold text-white">Aucune vente en cours</p>
-            <p className="mt-2 max-w-sm text-sm leading-6 text-[var(--color-muted)]">Ajoutez votre première acquisition pour commencer à suivre sa mise en vente.</p>
-          </div>
+          {acquisitions.length === 0 && (
+            <div className="flex min-h-64 flex-col items-center justify-center px-6 py-12 text-center">
+              <div className="flex size-14 items-center justify-center rounded-full border border-white/10 bg-white/4 text-2xl text-[var(--color-lime)]">+</div>
+              <p className="mt-5 font-semibold text-white">Aucune vente en cours</p>
+              <p className="mt-2 max-w-sm text-sm leading-6 text-[var(--color-muted)]">Ajoutez votre première acquisition pour commencer à suivre sa mise en vente.</p>
+            </div>
+          )}
         </div>
       </section>
 
@@ -221,7 +329,7 @@ export function AcquisitionWorkspace() {
 
             <div className="px-6 pt-5 pb-6 sm:px-8">
               {selectedItem ? (
-                <form onSubmit={(event) => event.preventDefault()}>
+                <form onSubmit={(event) => { event.preventDefault(); submitAcquisition(); }}>
                   <div className="flex items-center gap-4 rounded-2xl border border-white/8 bg-black/20 p-4">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={selectedItem.imageUrl} alt="" className="size-16 shrink-0 rounded-xl bg-white/5 object-contain p-1" />
@@ -296,7 +404,12 @@ export function AcquisitionWorkspace() {
                     </label>
                   </div>
 
-                  <button type="button" disabled className="mt-5 w-full cursor-not-allowed rounded-full bg-white/8 px-5 py-3.5 text-sm font-semibold text-[var(--color-muted)]">Enregistrement à venir</button>
+                  {submissionError && (
+                    <p role="alert" className="mt-5 rounded-2xl border border-[var(--color-orange)]/20 bg-[var(--color-orange)]/8 px-4 py-3 text-sm text-[var(--color-orange)]">{submissionError}</p>
+                  )}
+                  <button type="submit" disabled={!isFormValid || isPending} className="mt-5 w-full rounded-full bg-[var(--color-lime)] px-5 py-3.5 text-sm font-semibold text-black transition hover:bg-[var(--color-lime-soft)] disabled:cursor-not-allowed disabled:bg-white/8 disabled:text-[var(--color-muted)]">
+                    {isPending ? "Enregistrement…" : "Ajouter l’acquisition"}
+                  </button>
                 </form>
               ) : (
                 <>
