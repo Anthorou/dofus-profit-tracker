@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { BrandMark } from "@/components/brand-mark";
+import { SiteFooter } from "@/components/site-footer";
 
 const activity = [
   { day: "Lun", height: "38%", color: "bg-white" },
@@ -114,10 +115,7 @@ export default function Home() {
           </div>
         </section>
 
-        <footer className="flex items-center justify-between border-t border-white/8 py-5 text-xs text-[var(--color-muted)]">
-          <p>Conçu pour les joueurs qui veulent connaître leurs vrais chiffres.</p>
-          <span className="hidden sm:inline">DOFUS PROFIT TRACKER</span>
-        </footer>
+        <SiteFooter />
       </div>
     </main>
   );

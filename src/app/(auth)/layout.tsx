@@ -1,11 +1,12 @@
 import { BrandMark } from "@/components/brand-mark";
+import { SiteFooter } from "@/components/site-footer";
 
 export default function AuthLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <main className="app-shell">
-      <div className="grid min-h-[calc(100vh-26px)] lg:grid-cols-[0.8fr_1.2fr]">
+    <main className="app-shell flex flex-col">
+      <div className="grid flex-1 lg:grid-cols-[0.8fr_1.2fr]">
         <aside className="relative hidden overflow-hidden border-r border-white/8 p-10 lg:flex lg:flex-col">
           <BrandMark />
           <div className="my-auto max-w-lg">
@@ -55,6 +56,9 @@ export default function AuthLayout({
             {children}
           </div>
         </section>
+      </div>
+      <div className="px-5 sm:px-10">
+        <SiteFooter />
       </div>
     </main>
   );

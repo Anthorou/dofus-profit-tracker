@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { AppHeader } from "@/components/app-header";
+import { SiteFooter } from "@/components/site-footer";
 import { calculateListingTax } from "@/features/items/acquisitions/calculations";
 import { StatisticsDashboard } from "@/features/items/statistics/statistics-dashboard";
 import type {
@@ -135,13 +136,14 @@ export default async function StatisticsPage() {
 
   return (
     <main className="app-shell">
-      <div className="mx-auto min-h-[calc(100vh-26px)] max-w-[1440px] px-5 py-5 sm:px-8 lg:px-12">
+      <div className="mx-auto flex min-h-[calc(100vh-26px)] max-w-[1440px] flex-col px-5 py-5 sm:px-8 lg:px-12">
         <AppHeader activePage="statistics" email={user.email ?? ""} />
         <StatisticsDashboard
           summary={summary}
           professions={professions}
           equipment={equipment}
         />
+        <SiteFooter />
       </div>
     </main>
   );

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { AppHeader } from "@/components/app-header";
+import { SiteFooter } from "@/components/site-footer";
 import { AcquisitionWorkspace } from "@/features/items/components/acquisition-workspace";
 import { calculatePotentialProfit } from "@/features/items/acquisitions/calculations";
 import type { ActiveAcquisition } from "@/features/items/acquisitions/types";
@@ -105,7 +106,7 @@ export default async function DashboardPage() {
 
   return (
     <main className="app-shell">
-      <div className="mx-auto min-h-[calc(100vh-26px)] max-w-[1440px] px-5 py-5 sm:px-8 lg:px-12">
+      <div className="mx-auto flex min-h-[calc(100vh-26px)] max-w-[1440px] flex-col px-5 py-5 sm:px-8 lg:px-12">
         <AppHeader activePage="dashboard" email={user.email ?? ""} />
 
         <section className="pt-8 pb-12 sm:pt-10">
@@ -141,6 +142,7 @@ export default async function DashboardPage() {
 
           <AcquisitionWorkspace acquisitions={acquisitions} />
         </section>
+        <SiteFooter />
       </div>
     </main>
   );
