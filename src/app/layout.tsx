@@ -2,8 +2,8 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Dofus Profit Tracker",
-  description: "Suivez la rentabilité de vos crafts et achats-reventes Dofus.",
+  title: "Kamatelier",
+  description: "Suivez la rentabilité de vos crafts, achats et ventes.",
   icons: {
     icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
   },
