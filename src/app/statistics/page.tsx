@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { AppHeader } from "@/components/app-header";
@@ -10,6 +11,11 @@ import type {
   StatisticsSummary,
 } from "@/features/items/statistics/types";
 import { createClient } from "@/lib/supabase/server";
+
+export const metadata: Metadata = {
+  title: "Statistiques",
+  robots: { index: false, follow: false },
+};
 
 type StatisticAccumulator = {
   itemsSold: number;

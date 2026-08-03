@@ -3,8 +3,32 @@ import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Kamatelier",
+  metadataBase: new URL("https://www.kamatelier.com"),
+  title: {
+    default: "Kamatelier",
+    template: "%s | Kamatelier",
+  },
   description: "Suivez la rentabilité de vos crafts, achats et ventes.",
+  alternates: {
+    canonical: "/",
+  },
+  openGraph: {
+    type: "website",
+    locale: "fr_CA",
+    url: "/",
+    siteName: "Kamatelier",
+    title: "Kamatelier",
+    description: "Suivez la rentabilité de vos crafts, achats et ventes.",
+  },
+  twitter: {
+    card: "summary",
+    title: "Kamatelier",
+    description: "Suivez la rentabilité de vos crafts, achats et ventes.",
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
   icons: {
     icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
   },

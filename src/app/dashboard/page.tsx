@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { AppHeader } from "@/components/app-header";
@@ -6,6 +7,11 @@ import { AcquisitionWorkspace } from "@/features/items/components/acquisition-wo
 import { calculatePotentialProfit } from "@/features/items/acquisitions/calculations";
 import type { ActiveAcquisition } from "@/features/items/acquisitions/types";
 import { createClient } from "@/lib/supabase/server";
+
+export const metadata: Metadata = {
+  title: "Tableau de bord",
+  robots: { index: false, follow: false },
+};
 
 export default async function DashboardPage() {
   const supabase = await createClient();

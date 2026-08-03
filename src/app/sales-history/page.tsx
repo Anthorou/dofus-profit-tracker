@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { AppHeader } from "@/components/app-header";
@@ -5,6 +6,11 @@ import { SiteFooter } from "@/components/site-footer";
 import { SaleHistoryTable } from "@/features/items/sales/sale-history-table";
 import type { SaleHistoryEntry } from "@/features/items/sales/types";
 import { createClient } from "@/lib/supabase/server";
+
+export const metadata: Metadata = {
+  title: "Historique des ventes",
+  robots: { index: false, follow: false },
+};
 
 export default async function SalesHistoryPage() {
   const supabase = await createClient();
