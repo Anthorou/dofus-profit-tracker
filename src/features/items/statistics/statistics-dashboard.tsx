@@ -10,6 +10,18 @@ function formatKamas(value: number) {
   return `${numberFormatter.format(value)} K`;
 }
 
+function formatRoundedKamas(value: number) {
+  return `${numberFormatter.format(Math.round(value))} K`;
+}
+
+function formatSaleDuration(days: number) {
+  if (days < 1) {
+    return "< 1 jour";
+  }
+
+  return `${days.toLocaleString("fr-CA", { maximumFractionDigits: 1 })} ${days < 2 ? "jour" : "jours"}`;
+}
+
 function ProfitRate({ value }: { value: number | null }) {
   if (value === null) {
     return <span className="text-[var(--color-muted)]">—</span>;
@@ -79,7 +91,7 @@ export function StatisticsDashboard({
               <p className="eyebrow text-xs text-[var(--color-muted)]">{card.label}</p>
               <span className={`size-3 shrink-0 rounded-full ${card.accent === "lime" ? "bg-[var(--color-lime)]" : card.accent === "orange" ? "bg-[var(--color-orange)]" : card.accent === "red" ? "bg-red-400" : "bg-white"}`} />
             </div>
-            <p className={`font-display mt-7 text-5xl leading-none font-bold break-words ${card.accent === "red" ? "text-red-400" : "text-white"}`}>{card.value}</p>
+            <p className={`font-display mt-7 text-5xl leading-none font-bold break-words ${card.label === "Profit réel" ? (card.accent === "red" ? "text-red-400" : "text-[var(--color-lime)]") : "text-white"}`}>{card.value}</p>
             <p className="mt-7 text-xs leading-5 text-[var(--color-muted)]">{card.detail}</p>
           </article>
         ))}
@@ -152,11 +164,23 @@ export function StatisticsDashboard({
           <p className="mt-2 text-sm text-[var(--color-muted)]">Les équipements ayant généré le plus de profit réel.</p>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[920px] border-collapse text-left">
+          <table className="w-full min-w-[1240px] border-collapse text-left">
             <thead>
               <tr className="border-b border-white/6">
-                {['Rang', 'Équipement', 'Métier', 'Quantité', 'Revenus', 'Profit', 'Profit (%)'].map((column) => (
-                  <th key={column} className={`eyebrow px-3 py-4 text-[10px] font-bold whitespace-nowrap text-[var(--color-muted)] first:pl-6 last:pr-6 ${column === "Quantité" ? "text-center" : ""}`}>{column}</th>
+                {['Rang', 'Équipement', 'Métier', 'Quantité', 'Revenus', 'Profit', 'Profit (%)', 'Profit moyen', 'Vente moyenne', 'Profit quotidien'].map((column) => (
+                  <th key={column} className={`eyebrow px-3 py-4 text-[10px] font-bold whitespace-nowrap text-[var(--color-muted)] first:pl-6 last:pr-6 ${column === "Quantité" ? "text-center" : ""}`}>
+                    {column === "Profit quotidien" ? (
+                      <span className="inline-flex items-center gap-1.5">
+                        Profit quotidien
+                        <span tabIndex={0} className="group/daily-profit relative inline-flex cursor-help outline-none">
+                          <span aria-hidden="true" className="flex size-4 items-center justify-center rounded-full border border-white/15 font-sans text-[9px] normal-case text-[var(--color-muted)]">?</span>
+                          <span role="tooltip" className="pointer-events-none absolute top-full right-0 z-30 mt-2 hidden w-64 rounded-xl border border-white/10 bg-[#242424] p-3 text-left font-sans text-[11px] font-medium tracking-normal whitespace-normal normal-case shadow-2xl shadow-black/60 group-hover/daily-profit:block group-focus/daily-profit:block">
+                            Profit réel moyen par unité, divisé par le temps de vente moyen. Un délai inférieur à 24 heures compte comme une journée.
+                          </span>
+                        </span>
+                      </span>
+                    ) : column}
+                  </th>
                 ))}
               </tr>
             </thead>
@@ -183,7 +207,10 @@ export function StatisticsDashboard({
                     <td className="px-3 py-4 text-center text-xs font-semibold text-white">{numberFormatter.format(item.itemsSold)}</td>
                     <td className="px-3 py-4 text-xs whitespace-nowrap text-white">{formatKamas(item.revenue)}</td>
                     <td className={`px-3 py-4 text-xs font-semibold whitespace-nowrap ${item.profit < 0 ? "text-red-400" : "text-white"}`}>{formatKamas(item.profit)}</td>
-                    <td className="py-4 pr-6 pl-3 text-xs font-semibold whitespace-nowrap"><ProfitRate value={item.profitRate} /></td>
+                    <td className="px-3 py-4 text-xs font-semibold whitespace-nowrap"><ProfitRate value={item.profitRate} /></td>
+                    <td className={`px-3 py-4 text-xs font-semibold whitespace-nowrap ${item.averageUnitProfit < 0 ? "text-red-400" : "text-white"}`}>{formatRoundedKamas(item.averageUnitProfit)}</td>
+                    <td className="px-3 py-4 text-xs whitespace-nowrap text-white">{formatSaleDuration(item.averageDaysToSell)}</td>
+                    <td className={`py-4 pr-6 pl-3 text-xs font-semibold whitespace-nowrap ${item.averageDailyProfit < 0 ? "text-red-400" : "text-[var(--color-lime)]"}`}>{formatRoundedKamas(item.averageDailyProfit)}</td>
                   </tr>
                 ))}
               </tbody>

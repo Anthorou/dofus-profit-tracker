@@ -31,7 +31,10 @@ type EquipmentAccumulator = StatisticAccumulator & {
   itemType: string | null;
   itemLevel: number | null;
   profession: string;
+  weightedSaleDays: number;
 };
+
+const MILLISECONDS_PER_DAY = 1000 * 60 * 60 * 24;
 
 function calculateProfitRate({ invested, profit }: StatisticAccumulator) {
   return invested === 0 ? null : (profit / invested) * 100;
@@ -52,10 +55,12 @@ export default async function StatisticsPage() {
     .select(`
       quantity_sold,
       sale_unit_price,
+      sold_at,
       acquisition_lots!inner(
         item_id,
         acquisition_unit_cost,
         initial_listing_unit_price,
+        listed_at,
         items!inner(name, image_url, item_type, level),
         professions!inner(name)
       )
@@ -84,6 +89,12 @@ export default async function StatisticsPage() {
       calculateListingTax(acquisition.initial_listing_unit_price, 1) * quantity;
     const profit = revenue - invested - tax;
     const professionName = acquisition.professions.name;
+    const saleDays = Math.max(
+      (new Date(sale.sold_at).getTime() -
+        new Date(acquisition.listed_at).getTime()) /
+        MILLISECONDS_PER_DAY,
+      0,
+    );
 
     summary.itemsSold += quantity;
     summary.invested += invested;
@@ -113,11 +124,13 @@ export default async function StatisticsPage() {
       invested: 0,
       revenue: 0,
       profit: 0,
+      weightedSaleDays: 0,
     };
     item.itemsSold += quantity;
     item.invested += invested;
     item.revenue += revenue;
     item.profit += profit;
+    item.weightedSaleDays += saleDays * quantity;
     equipmentAccumulators.set(acquisition.item_id, item);
   }
 
@@ -132,10 +145,19 @@ export default async function StatisticsPage() {
 
   const equipment: EquipmentStatistic[] = Array.from(
     equipmentAccumulators.values(),
-    (item) => ({
-      ...item,
-      profitRate: calculateProfitRate(item),
-    }),
+    (item) => {
+      const averageUnitProfit = item.profit / item.itemsSold;
+      const averageDaysToSell = item.weightedSaleDays / item.itemsSold;
+
+      return {
+        ...item,
+        profitRate: calculateProfitRate(item),
+        averageUnitProfit,
+        averageDaysToSell,
+        averageDailyProfit:
+          averageUnitProfit / Math.max(averageDaysToSell, 1),
+      };
+    },
   )
     .sort((first, second) => second.profit - first.profit)
     .slice(0, 10);

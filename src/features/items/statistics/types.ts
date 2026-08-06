@@ -26,4 +26,7 @@ export type EquipmentStatistic = {
   invested: number;
   profit: number;
   profitRate: number | null;
+  averageUnitProfit: number;
+  averageDaysToSell: number;
+  averageDailyProfit: number;
 };
