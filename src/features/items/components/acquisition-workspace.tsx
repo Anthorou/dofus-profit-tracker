@@ -790,7 +790,110 @@ export function AcquisitionWorkspace({ acquisitions }: AcquisitionWorkspaceProps
           </label>
         </div>
 
-        <div className="overflow-x-auto">
+        {visibleAcquisitions.length > 0 && (
+          <div className="border-b border-white/6 px-4 py-3 md:hidden">
+            <div className="flex items-center gap-2 overflow-x-auto pb-1">
+              <span className="eyebrow shrink-0 pr-1 text-[10px] text-[var(--color-muted)]">Trier</span>
+              {([
+                ["date", "Date"],
+                ["equipment", "Équipement"],
+                ["status", "Statut"],
+              ] as const).map(([key, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => toggleSort(key)}
+                  className={`shrink-0 rounded-full border px-3 py-1.5 text-[11px] font-semibold transition ${sortKey === key ? "border-[var(--color-lime)]/40 bg-[var(--color-lime)]/10 text-[var(--color-lime)]" : "border-white/10 text-[var(--color-muted)]"}`}
+                >
+                  {label} <span aria-hidden="true">{sortIndicator(key)}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {visibleAcquisitions.length > 0 && (
+          <div className="space-y-3 p-4 md:hidden">
+            {visibleAcquisitions.map((acquisition) => (
+              <article key={acquisition.id} className="rounded-2xl border border-white/8 bg-black/20 p-4">
+                <div className="flex items-start gap-3">
+                  {acquisition.imageUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={acquisition.imageUrl} alt="" className="size-12 shrink-0 rounded-xl bg-white/5 object-contain p-1" />
+                  ) : (
+                    <span className="size-12 shrink-0 rounded-xl bg-white/5" />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <h3 className="truncate text-sm font-semibold text-white">{acquisition.itemName}</h3>
+                    <p className="mt-1 truncate text-xs text-[var(--color-muted)]">
+                      {acquisition.itemType ?? "Équipement"}
+                      {acquisition.itemLevel !== null ? ` · Niveau ${acquisition.itemLevel}` : ""}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    aria-label={`Actions pour ${acquisition.itemName}`}
+                    aria-expanded={actionsMenu?.acquisition.id === acquisition.id}
+                    onClick={(event) => toggleActionsMenu(event, acquisition)}
+                    className="-mt-1 -mr-1 inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-white/8 text-sm font-bold tracking-widest text-[var(--color-muted)] transition hover:border-white/20 hover:text-white"
+                  >
+                    •••
+                  </button>
+                </div>
+
+                <div className="mt-4 flex flex-wrap items-center gap-2">
+                  <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${acquisition.quantitySold > 0 ? "bg-[var(--color-orange)]/10 text-[var(--color-orange)]" : "bg-[var(--color-lime)]/10 text-[var(--color-lime)]"}`}>
+                    <span className={`size-1.5 rounded-full ${acquisition.quantitySold > 0 ? "bg-[var(--color-orange)]" : "bg-[var(--color-lime)]"}`} />
+                    {acquisition.quantitySold > 0 ? "Partiellement vendu" : "En vente"}
+                  </span>
+                  <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${acquisition.acquisitionType === "craft" ? "bg-[var(--color-lime)]/15 text-[var(--color-lime)]" : "bg-[var(--color-orange)]/15 text-[var(--color-orange)]"}`}>
+                    {acquisition.acquisitionType === "craft" ? "Craft" : "Achat"}
+                  </span>
+                  {acquisition.isForgemaged && (
+                    <span className="rounded-full bg-white/12 px-2 py-1 text-[11px] font-bold text-white">FM</span>
+                  )}
+                </div>
+
+                <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 border-y border-white/6 py-4">
+                  <div>
+                    <dt className="eyebrow text-[9px] text-[var(--color-muted)]">Prix affiché</dt>
+                    <dd className="mt-1 text-sm font-semibold text-white">{numberFormatter.format(acquisition.listingPrice)} K</dd>
+                    {acquisition.listingPrice !== acquisition.initialListingPrice && (
+                      <dd className="mt-0.5 text-[10px] text-[var(--color-muted)]">Initial : {numberFormatter.format(acquisition.initialListingPrice)} K</dd>
+                    )}
+                  </div>
+                  <div>
+                    <dt className="eyebrow text-[9px] text-[var(--color-muted)]">Profit par unité</dt>
+                    <dd className="mt-1 text-sm"><PotentialUnitProfit acquisition={acquisition} /></dd>
+                  </div>
+                  <div>
+                    <dt className="eyebrow text-[9px] text-[var(--color-muted)]">Coût unitaire</dt>
+                    <dd className="mt-1 text-sm text-white">{numberFormatter.format(acquisition.unitCost)} K</dd>
+                  </div>
+                  <div>
+                    <dt className="eyebrow text-[9px] text-[var(--color-muted)]">Rendement</dt>
+                    <dd className="mt-1 text-sm"><PotentialProfitRate acquisition={acquisition} /></dd>
+                  </div>
+                  <div>
+                    <dt className="eyebrow text-[9px] text-[var(--color-muted)]">Quantité restante</dt>
+                    <dd className="mt-1 text-sm text-white">{numberFormatter.format(acquisition.quantity)}</dd>
+                  </div>
+                  <div>
+                    <dt className="eyebrow text-[9px] text-[var(--color-muted)]">Taxe HDV</dt>
+                    <dd className="mt-1 text-sm text-white">{numberFormatter.format(calculateListingTax(acquisition.initialListingPrice, 1))} K</dd>
+                  </div>
+                </dl>
+
+                <div className="mt-3 flex items-center justify-between gap-3 text-[11px] text-[var(--color-muted)]">
+                  <span>{acquisition.profession}</span>
+                  <span>Mise en vente le {dateFormatter.format(new Date(acquisition.listedAt))}</span>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+
+        <div className="hidden overflow-x-auto md:block">
           <table className="w-full min-w-[1120px] table-fixed border-collapse text-left">
             <colgroup>
               <col className="w-[105px]" />
@@ -888,20 +991,20 @@ export function AcquisitionWorkspace({ acquisitions }: AcquisitionWorkspaceProps
               </tbody>
             )}
           </table>
-          {acquisitions.length === 0 && (
-            <div className="flex min-h-64 flex-col items-center justify-center px-6 py-12 text-center">
-              <div className="flex size-14 items-center justify-center rounded-full border border-white/10 bg-white/4 text-2xl text-[var(--color-lime)]">+</div>
-              <p className="mt-5 font-semibold text-white">Aucune vente en cours</p>
-              <p className="mt-2 max-w-sm text-sm leading-6 text-[var(--color-muted)]">Ajoutez votre première acquisition pour commencer à suivre sa mise en vente.</p>
-            </div>
-          )}
-          {acquisitions.length > 0 && visibleAcquisitions.length === 0 && (
-            <div className="flex min-h-48 flex-col items-center justify-center px-6 py-10 text-center">
-              <p className="font-semibold text-white">Aucun équipement trouvé</p>
-              <p className="mt-2 text-sm text-[var(--color-muted)]">Essaie un autre nom d’équipement.</p>
-            </div>
-          )}
         </div>
+        {acquisitions.length === 0 && (
+          <div className="flex min-h-64 flex-col items-center justify-center px-6 py-12 text-center">
+            <div className="flex size-14 items-center justify-center rounded-full border border-white/10 bg-white/4 text-2xl text-[var(--color-lime)]">+</div>
+            <p className="mt-5 font-semibold text-white">Aucune vente en cours</p>
+            <p className="mt-2 max-w-sm text-sm leading-6 text-[var(--color-muted)]">Ajoutez votre première acquisition pour commencer à suivre sa mise en vente.</p>
+          </div>
+        )}
+        {acquisitions.length > 0 && visibleAcquisitions.length === 0 && (
+          <div className="flex min-h-48 flex-col items-center justify-center px-6 py-10 text-center">
+            <p className="font-semibold text-white">Aucun équipement trouvé</p>
+            <p className="mt-2 text-sm text-[var(--color-muted)]">Essaie un autre nom d’équipement.</p>
+          </div>
+        )}
       </section>
 
       {actionsMenu && (

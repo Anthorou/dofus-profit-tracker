@@ -123,9 +123,12 @@ Une vente ne peut pas dépasser la quantité restante. La suppression complète 
 ### Tableau de bord
 
 - Cartes : quantité d'objets en vente, kamas immobilisés et profit potentiel.
+- Sur mobile, ces trois cartes de résumé utilisent une présentation compacte afin de laisser rapidement accès aux ventes en cours; leur présentation ample est conservée sur les écrans plus larges.
 - Liste des lots possédant encore au moins une unité invendue.
 - Recherche textuelle dans les ventes en cours.
 - Tri par statut, date ou équipement.
+- Sur mobile, les ventes en cours sont présentées en cartes sans défilement horizontal; chaque carte conserve l'identité de l'item, ses principales données financières et son menu d'actions au même endroit.
+- La vue mobile possède ses propres contrôles de tri par date, équipement ou statut. Le tableau détaillé est conservé sur les écrans plus larges.
 - Ajout d'une acquisition à partir de la recherche Dofusdude.
 - Choix craft/achat, métier, forgemagé ou non, quantité, coût unitaire, prix de vente et date.
 - Modification d'une acquisition avant sa première vente.
@@ -196,11 +199,9 @@ Cette liste conserve les décisions et idées discutées. Avant toute implément
 
 ### Ergonomie mobile des tableaux
 
-- Revoir les tableaux qui nécessitent actuellement un défilement horizontal sur mobile.
-- Le nom et l'image de l'équipement peuvent se retrouver loin du menu d'actions situé à droite; après le défilement, l'utilisateur peut perdre le contexte de la ligne qu'il voulait modifier.
-- Concevoir une présentation mobile qui garde l'identité de l'item et ses actions associées faciles à relier, notamment pour modifier un prix ou ouvrir le menu à trois points.
+- Les ventes en cours utilisent maintenant une présentation en cartes sur mobile afin de garder l'identité de l'item et son menu d'actions associés. Cette partie ne dépend plus d'un défilement horizontal.
+- Revoir encore les autres tableaux qui nécessitent un défilement horizontal sur mobile, notamment l'historique des ventes et les futurs tableaux analytiques.
 - Évaluer selon chaque écran une première colonne fixe, des actions fixes, une présentation en cartes ou une vue mobile dédiée, sans nuire à la lisibilité des données.
-- Vérifier en particulier les ventes en cours, l'historique des ventes et les futurs tableaux analytiques sur des écrans étroits.
 
 ### Refonte des statistiques d'équipement
 

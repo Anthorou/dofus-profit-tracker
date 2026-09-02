@@ -115,19 +115,19 @@ export default async function DashboardPage() {
       <div className="mx-auto flex min-h-[calc(100vh-26px)] max-w-[1440px] flex-col px-5 py-5 sm:px-8 lg:px-12">
         <AppHeader activePage="dashboard" email={user.email ?? ""} />
 
-        <section className="pt-8 pb-12 sm:pt-10">
-          <div className="grid gap-4 md:grid-cols-3">
+        <section className="pt-6 pb-12 sm:pt-10">
+          <div className="grid gap-2.5 md:grid-cols-3 md:gap-4">
             {previewCards.map((card) => (
               <article
                 key={card.label}
-                className="surface-card min-h-56 rounded-[28px] p-6"
+                className="surface-card rounded-2xl p-4 md:min-h-56 md:rounded-[28px] md:p-6"
               >
                 <div className="flex items-center justify-between">
                   <p className="eyebrow text-xs text-[var(--color-muted)]">
                     {card.label}
                   </p>
                   <span
-                    className={`size-3 rounded-full ${
+                    className={`size-2.5 rounded-full md:size-3 ${
                       card.accent === "lime"
                         ? "bg-[var(--color-lime)]"
                         : card.accent === "orange"
@@ -136,10 +136,10 @@ export default async function DashboardPage() {
                     }`}
                   />
                 </div>
-                <p className="font-display mt-8 text-7xl leading-none font-bold text-white">
+                <p className="font-display mt-2 text-4xl leading-none font-bold text-white md:mt-8 md:text-7xl">
                   {card.value}
                 </p>
-                <p className="mt-8 text-sm leading-6 text-[var(--color-muted)]">
+                <p className="mt-1.5 text-xs leading-5 text-[var(--color-muted)] md:mt-8 md:text-sm md:leading-6">
                   {card.detail}
                 </p>
               </article>
