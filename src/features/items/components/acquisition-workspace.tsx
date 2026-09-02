@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 
+import { FixedTableHeader } from "@/components/fixed-table-header";
 import {
   createAcquisitionAction,
   type CreateAcquisitionInput,
@@ -893,7 +894,7 @@ export function AcquisitionWorkspace({ acquisitions }: AcquisitionWorkspaceProps
           </div>
         )}
 
-        <div className="hidden overflow-x-auto md:block">
+        <FixedTableHeader className="hidden md:block">
           <table className="w-full min-w-[1120px] table-fixed border-collapse text-left">
             <colgroup>
               <col className="w-[105px]" />
@@ -907,7 +908,7 @@ export function AcquisitionWorkspace({ acquisitions }: AcquisitionWorkspaceProps
               <col className="w-[85px]" />
               <col className="w-[180px]" />
             </colgroup>
-            <thead>
+            <thead className="sticky-table-header">
               <tr className="border-b border-white/6">
                 {tableColumns.map((column) => (
                   <th key={column} className={`eyebrow px-2 py-4 text-[10px] font-bold whitespace-nowrap text-[var(--color-muted)] first:pl-6 last:pr-6 ${column === "Quantité" || column === "Statut" ? "text-center" : ""} ${column === "Quantité" || column === "Statut" ? "relative -left-1.5" : ""} ${column === "Équipement" ? "pl-4" : ""} ${column === "Acquisition" ? "pl-0" : ""}`}>
@@ -991,7 +992,7 @@ export function AcquisitionWorkspace({ acquisitions }: AcquisitionWorkspaceProps
               </tbody>
             )}
           </table>
-        </div>
+        </FixedTableHeader>
         {acquisitions.length === 0 && (
           <div className="flex min-h-64 flex-col items-center justify-center px-6 py-12 text-center">
             <div className="flex size-14 items-center justify-center rounded-full border border-white/10 bg-white/4 text-2xl text-[var(--color-lime)]">+</div>

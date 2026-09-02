@@ -3,6 +3,7 @@ import type {
   ProfessionStatistic,
   StatisticsSummary,
 } from "@/features/items/statistics/types";
+import { FixedTableHeader } from "@/components/fixed-table-header";
 
 const numberFormatter = new Intl.NumberFormat("fr-CA");
 
@@ -103,9 +104,9 @@ export function StatisticsDashboard({
             <p className="eyebrow text-xs text-[var(--color-orange)]">Répartition</p>
             <h2 className="font-display mt-2 text-3xl font-bold uppercase text-white">Performance par métier</h2>
           </div>
-          <div className="overflow-x-auto">
+          <FixedTableHeader>
             <table className="w-full min-w-[760px] border-collapse text-left">
-              <thead>
+              <thead className="sticky-table-header">
                 <tr className="border-b border-white/6">
                   {['#', 'Métier', 'Objets', 'Investis', 'Revenus', 'Profit', 'Profit (%)'].map((column) => (
                     <th key={column} className="eyebrow px-3 py-4 text-[10px] font-bold whitespace-nowrap text-[var(--color-muted)] first:pl-6 last:pr-6">{column}</th>
@@ -128,7 +129,7 @@ export function StatisticsDashboard({
                 </tbody>
               )}
             </table>
-          </div>
+          </FixedTableHeader>
           {professions.length === 0 && (
             <div className="flex min-h-52 items-center justify-center px-6 text-center text-sm text-[var(--color-muted)]">Enregistre une vente pour voir la performance par métier.</div>
           )}
@@ -163,9 +164,9 @@ export function StatisticsDashboard({
           <h2 className="font-display mt-2 text-3xl font-bold uppercase text-white">Top 10 des équipements</h2>
           <p className="mt-2 text-sm text-[var(--color-muted)]">Les équipements ayant généré le plus de profit réel.</p>
         </div>
-        <div className="overflow-x-auto">
+        <FixedTableHeader>
           <table className="w-full min-w-[1240px] border-collapse text-left">
-            <thead>
+            <thead className="sticky-table-header">
               <tr className="border-b border-white/6">
                 {['Rang', 'Équipement', 'Métier', 'Quantité', 'Revenus', 'Profit', 'Profit (%)', 'Profit moyen', 'Vente moyenne', 'Profit quotidien'].map((column) => (
                   <th key={column} className={`eyebrow px-3 py-4 text-[10px] font-bold whitespace-nowrap text-[var(--color-muted)] first:pl-6 last:pr-6 ${column === "Quantité" ? "text-center" : ""}`}>
@@ -216,7 +217,7 @@ export function StatisticsDashboard({
               </tbody>
             )}
           </table>
-        </div>
+        </FixedTableHeader>
         {equipment.length === 0 && (
           <div className="flex min-h-60 flex-col items-center justify-center px-6 py-12 text-center">
             <p className="font-semibold text-white">Aucun équipement à classer</p>

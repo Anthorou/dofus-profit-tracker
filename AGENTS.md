@@ -123,6 +123,7 @@ Une vente ne peut pas dépasser la quantité restante. La suppression complète 
 ### Tableau de bord
 
 - Cartes : quantité d'objets en vente, kamas immobilisés et profit potentiel.
+- Les en-têtes des tableaux restent visibles pendant le défilement afin de conserver le contexte des colonnes.
 - Sur mobile, ces trois cartes de résumé utilisent une présentation compacte afin de laisser rapidement accès aux ventes en cours; leur présentation ample est conservée sur les écrans plus larges.
 - Liste des lots possédant encore au moins une unité invendue.
 - Recherche textuelle dans les ventes en cours.

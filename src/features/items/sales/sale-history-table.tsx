@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 
+import { FixedTableHeader } from "@/components/fixed-table-header";
 import {
   calculateListingTax,
   calculateRealizedProfitRate,
@@ -211,9 +212,9 @@ export function SaleHistoryTable({ sales }: { sales: SaleHistoryEntry[] }) {
         </label>
       </div>
 
-      <div className="overflow-x-auto">
+      <FixedTableHeader>
         <table className="w-full min-w-[1220px] border-collapse text-left">
-          <thead>
+          <thead className="sticky-table-header">
             <tr className="border-b border-white/6">
               {[
                 "Date",
@@ -315,7 +316,7 @@ export function SaleHistoryTable({ sales }: { sales: SaleHistoryEntry[] }) {
             </tbody>
           )}
         </table>
-      </div>
+      </FixedTableHeader>
 
       {sales.length === 0 && (
         <div className="flex min-h-72 flex-col items-center justify-center px-6 py-12 text-center">
