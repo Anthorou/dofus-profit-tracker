@@ -194,6 +194,14 @@ Cette liste conserve les décisions et idées discutées. Avant toute implément
 - Ajouter une méthode de contact ou de rétroaction sur Kamatelier.
 - Préparer les publications du forum DOFUS et de Reddit.
 
+### Ergonomie mobile des tableaux
+
+- Revoir les tableaux qui nécessitent actuellement un défilement horizontal sur mobile.
+- Le nom et l'image de l'équipement peuvent se retrouver loin du menu d'actions situé à droite; après le défilement, l'utilisateur peut perdre le contexte de la ligne qu'il voulait modifier.
+- Concevoir une présentation mobile qui garde l'identité de l'item et ses actions associées faciles à relier, notamment pour modifier un prix ou ouvrir le menu à trois points.
+- Évaluer selon chaque écran une première colonne fixe, des actions fixes, une présentation en cartes ou une vue mobile dédiée, sans nuire à la lisibilité des données.
+- Vérifier en particulier les ventes en cours, l'historique des ventes et les futurs tableaux analytiques sur des écrans étroits.
+
 ### Refonte des statistiques d'équipement
 
 Objectif du Top 10 : répondre à « Quels équipements semblent actuellement les plus pertinents à refaire? », et non seulement « Quels équipements ont produit le plus de profit historique? ».

@@ -1087,7 +1087,16 @@ export function AcquisitionWorkspace({ acquisitions }: AcquisitionWorkspaceProps
             }
           }}
         >
-          <div role="dialog" aria-modal="true" aria-labelledby="listing-price-title" className="surface-card w-full max-w-md rounded-[28px] p-6 sm:p-8">
+          <form
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="listing-price-title"
+            className="surface-card w-full max-w-md rounded-[28px] p-6 sm:p-8"
+            onSubmit={(event) => {
+              event.preventDefault();
+              saveListingPrice();
+            }}
+          >
             <p className="eyebrow text-xs text-[var(--color-lime)]">Prix actuel</p>
             <h2 id="listing-price-title" className="font-display mt-2 text-3xl font-bold uppercase text-white">Modifier le prix affiché</h2>
 
@@ -1104,7 +1113,7 @@ export function AcquisitionWorkspace({ acquisitions }: AcquisitionWorkspaceProps
             <label className="mt-5 block">
               <span className="eyebrow text-xs text-white">Nouveau prix affiché</span>
               <div className="mt-2 flex h-14 items-center rounded-2xl border border-white/10 bg-black/25 px-4 transition focus-within:border-[var(--color-lime)]/70">
-                <input autoFocus type="text" inputMode="numeric" pattern="[0-9]*" required value={listingPrice} onChange={(event) => setListingPrice(event.target.value.replace(/\D/g, ""))} className="min-w-0 flex-1 bg-transparent text-sm text-white outline-none" />
+                <input autoFocus type="text" inputMode="numeric" pattern="[0-9]*" required value={listingPrice} onFocus={(event) => event.currentTarget.select()} onChange={(event) => setListingPrice(event.target.value.replace(/\D/g, ""))} className="min-w-0 flex-1 bg-transparent text-sm text-white outline-none" />
                 <span className="text-xs font-semibold text-[var(--color-muted)]">K</span>
               </div>
             </label>
@@ -1115,9 +1124,9 @@ export function AcquisitionWorkspace({ acquisitions }: AcquisitionWorkspaceProps
 
             <div className="mt-7 flex justify-center gap-3">
               <button type="button" disabled={isUpdatingListingPrice} onClick={closeListingPriceModal} className="rounded-full border border-white/10 px-5 py-3 text-sm font-semibold text-white transition hover:border-white/25 disabled:cursor-not-allowed disabled:opacity-50">Annuler</button>
-              <button type="button" disabled={isUpdatingListingPrice || listingPrice === "" || parsedListingPrice <= 0} onClick={saveListingPrice} className="rounded-full bg-[var(--color-lime)] px-5 py-3 text-sm font-semibold text-black transition hover:bg-[var(--color-lime-soft)] disabled:cursor-not-allowed disabled:bg-white/8 disabled:text-[var(--color-muted)]">{isUpdatingListingPrice ? "Enregistrement…" : "Enregistrer"}</button>
+              <button type="submit" disabled={isUpdatingListingPrice || listingPrice === "" || parsedListingPrice <= 0} className="rounded-full bg-[var(--color-lime)] px-5 py-3 text-sm font-semibold text-black transition hover:bg-[var(--color-lime-soft)] disabled:cursor-not-allowed disabled:bg-white/8 disabled:text-[var(--color-muted)]">{isUpdatingListingPrice ? "Enregistrement…" : "Enregistrer"}</button>
             </div>
-          </div>
+          </form>
         </div>
       )}
 
@@ -1345,7 +1354,7 @@ export function AcquisitionWorkspace({ acquisitions }: AcquisitionWorkspaceProps
 
                     <label className="block sm:col-span-2">
                       <span className="eyebrow text-xs text-white">Quantité</span>
-                      <input type="text" inputMode="numeric" pattern="[1-9][0-9]*" required value={quantity} onChange={(event) => setQuantity(event.target.value.replace(/\D/g, ""))} className="mt-2 h-14 w-full rounded-2xl border border-white/10 bg-black/25 px-4 text-sm text-white outline-none transition focus:border-[var(--color-lime)]/70" />
+                      <input type="text" inputMode="numeric" pattern="[1-9][0-9]*" required value={quantity} onFocus={(event) => event.currentTarget.select()} onChange={(event) => setQuantity(event.target.value.replace(/\D/g, ""))} className="mt-2 h-14 w-full rounded-2xl border border-white/10 bg-black/25 px-4 text-sm text-white outline-none transition focus:border-[var(--color-lime)]/70" />
                     </label>
                   </div>
 
